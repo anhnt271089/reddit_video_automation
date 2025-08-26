@@ -24,6 +24,7 @@
     "better-sqlite3": "^9.6.0",
     "dotenv": "^16.6.1",
     "fastify": "^4.29.1",
+    "fastify-plugin": "^5.0.1",
     "winston": "^3.17.0"
   },
   "devDependencies": {
