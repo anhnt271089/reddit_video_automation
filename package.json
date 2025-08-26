@@ -8,19 +8,46 @@
   },
   "scripts": {
     "dev": "turbo run dev --parallel",
+    "dev:web": "turbo run dev --filter=video-automation-web",
+    "dev:server": "turbo run dev --filter=server",
     "build": "turbo run build",
     "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "turbo run clean",
+    "health-check": "node scripts/health-check.js",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "prettier": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^13.3.0",
+    "prettier": "^3.6.2",
     "turbo": "^1.10.0",
     "typescript": "^5.0.0"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "description": "Reddit-to-Video automation workflow with local-first architecture"
+  "description": "Reddit-to-Video automation workflow with local-first architecture",
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  }
 }

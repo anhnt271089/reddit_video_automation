@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.turbo/
+*.config.js
+*.config.ts
+vite.config.*
+vitest.config.*
+tailwind.config.*
+postcss.config.*
+*.d.ts
+.env
+.env.*

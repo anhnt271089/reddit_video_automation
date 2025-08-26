@@ -2,17 +2,54 @@
   "$schema": "https://turbo.build/schema.json",
   "pipeline": {
     "build": {
-      "outputs": ["dist/**", "build/**", ".next/**"]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**", ".next/**"],
+      "env": ["NODE_ENV"]
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["NODE_ENV", "PORT", "DATABASE_URL"]
     },
-    "lint": {
+    "typecheck": {
+      "dependsOn": ["^build"],
       "outputs": []
     },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "format": {
+      "outputs": [],
+      "cache": false
+    },
     "test": {
-      "outputs": ["coverage/**"]
+      "dependsOn": ["^build", "typecheck"],
+      "outputs": ["coverage/**"],
+      "env": ["NODE_ENV"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build", "typecheck"],
+      "outputs": ["coverage/**"],
+      "env": ["NODE_ENV"]
+    },
+    "clean": {
+      "cache": false,
+      "outputs": []
+    },
+    "db:migrate": {
+      "cache": false,
+      "outputs": []
     }
-  }
+  },
+  "globalDependencies": [
+    ".env",
+    ".env.local",
+    ".eslintrc.cjs",
+    ".prettierrc",
+    "turbo.json",
+    "tsconfig.json"
+  ],
+  "globalEnv": ["NODE_ENV"]
 }
