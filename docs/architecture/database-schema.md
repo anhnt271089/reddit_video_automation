@@ -1,0 +1,123 @@
+# Database Schema
+
+Concrete SQLite/PostgreSQL schema with proper indexing, constraints, and relationships optimized for the Reddit-to-video pipeline.
+
+```sql
+-- Reddit Posts Table
+CREATE TABLE reddit_posts (
+    id TEXT PRIMARY KEY,
+    reddit_id TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    url TEXT NOT NULL,
+    author TEXT NOT NULL,
+    upvotes INTEGER NOT NULL DEFAULT 0,
+    comments INTEGER NOT NULL DEFAULT 0,
+    created_date TIMESTAMP NOT NULL,
+    score REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN (
+        'idea', 'idea_selected', 'script_generated', 'script_approved',
+        'script_rejected', 'assets_ready', 'rendering', 'completed', 'failed'
+    )),
+    discovered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Video Scripts Table
+CREATE TABLE video_scripts (
+    id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES reddit_posts(id) ON DELETE CASCADE,
+    script_content TEXT NOT NULL,
+    scene_breakdown JSON NOT NULL, -- SceneData[] serialized
+    duration_target INTEGER NOT NULL DEFAULT 60,
+    titles JSON NOT NULL, -- string[] for 5 title variations
+    description TEXT NOT NULL,
+    thumbnail_suggestions JSON NOT NULL, -- ThumbnailConcept[] serialized
+    version INTEGER NOT NULL DEFAULT 1,
+    approved BOOLEAN NOT NULL DEFAULT FALSE,
+    audio_path TEXT,
+    word_timings JSON, -- Word-level timing data from TTS
+    generated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    approved_at TIMESTAMP
+);
+
+-- Video Assets Table (Pexels content)
+CREATE TABLE video_assets (
+    id TEXT PRIMARY KEY,
+    script_id TEXT NOT NULL REFERENCES video_scripts(id) ON DELETE CASCADE,
+    scene_number INTEGER NOT NULL,
+    pexels_id INTEGER NOT NULL,
+    asset_type TEXT NOT NULL CHECK (asset_type IN ('video', 'image')),
+    url TEXT NOT NULL,
+    local_path TEXT NOT NULL,
+    photographer TEXT NOT NULL,
+    duration INTEGER, -- NULL for images, seconds for videos
+    resolution TEXT NOT NULL,
+    relevance_score REAL NOT NULL CHECK (relevance_score BETWEEN 0 AND 1),
+    approved BOOLEAN NOT NULL DEFAULT FALSE,
+    cached_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Background Music Library
+CREATE TABLE background_music (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    file_path TEXT NOT NULL UNIQUE,
+    duration INTEGER NOT NULL,
+    emotional_tone TEXT NOT NULL CHECK (emotional_tone IN (
+        'motivational', 'contemplative', 'urgent', 'neutral'
+    )),
+    genre TEXT NOT NULL,
+    volume_level REAL NOT NULL CHECK (volume_level BETWEEN 0 AND 1),
+    loop_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    artist TEXT NOT NULL,
+    license TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Music Selection for Scripts
+CREATE TABLE music_selections (
+    id TEXT PRIMARY KEY,
+    script_id TEXT NOT NULL REFERENCES video_scripts(id) ON DELETE CASCADE,
+    music_id TEXT NOT NULL REFERENCES background_music(id) ON DELETE CASCADE,
+    selected_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    volume_adjustment REAL CHECK (volume_adjustment BETWEEN 0 AND 1),
+    fade_in_duration INTEGER DEFAULT 3, -- seconds
+    fade_out_duration INTEGER DEFAULT 3, -- seconds
+    UNIQUE(script_id) -- One music track per script
+);
+
+-- Video Outputs Table
+CREATE TABLE video_outputs (
+    id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES reddit_posts(id) ON DELETE CASCADE,
+    script_id TEXT NOT NULL REFERENCES video_scripts(id) ON DELETE CASCADE,
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL DEFAULT 0,
+    duration INTEGER NOT NULL,
+    resolution TEXT NOT NULL DEFAULT '1920x1080',
+    render_settings JSON NOT NULL, -- RenderConfig serialized
+    status TEXT NOT NULL CHECK (status IN ('rendering', 'completed', 'failed')),
+    thumbnail_paths JSON, -- string[] for thumbnail options
+    metadata JSON NOT NULL, -- VideoMetadata serialized
+    rendered_at TIMESTAMP,
+    error_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Indexes
+CREATE INDEX idx_reddit_posts_status ON reddit_posts(status);
+CREATE INDEX idx_reddit_posts_score ON reddit_posts(score DESC);
+CREATE INDEX idx_video_scripts_post_id ON video_scripts(post_id);
+CREATE INDEX idx_video_assets_script_id ON video_assets(script_id);
+CREATE INDEX idx_background_music_tone ON background_music(emotional_tone);
+CREATE INDEX idx_music_selections_script ON music_selections(script_id);
+CREATE INDEX idx_video_outputs_status ON video_outputs(status);
+
+-- Sample Background Music Data
+INSERT INTO background_music (id, title, file_path, duration, emotional_tone, genre, volume_level, loop_enabled, artist, license) VALUES
+('bg_001', 'Uplifting Journey', '/assets/music/uplifting_journey.mp3', 180, 'motivational', 'upbeat', 0.3, TRUE, 'Various Artists', 'Royalty Free'),
+('bg_002', 'Peaceful Reflection', '/assets/music/peaceful_reflection.mp3', 240, 'contemplative', 'ambient', 0.25, TRUE, 'Various Artists', 'Royalty Free'),
+('bg_003', 'Dynamic Energy', '/assets/music/dynamic_energy.mp3', 150, 'urgent', 'electronic', 0.35, TRUE, 'Various Artists', 'Royalty Free'),
+('bg_004', 'Gentle Focus', '/assets/music/gentle_focus.mp3', 300, 'neutral', 'cinematic', 0.2, TRUE, 'Various Artists', 'Royalty Free');
+```
