@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 
@@ -32,9 +38,10 @@ export function ContentReview() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground line-clamp-3">
-              Artificial intelligence is transforming healthcare in unprecedented ways. 
-              From diagnostic imaging to drug discovery, AI is enabling faster, more 
-              accurate, and more personalized treatment options...
+              Artificial intelligence is transforming healthcare in
+              unprecedented ways. From diagnostic imaging to drug discovery, AI
+              is enabling faster, more accurate, and more personalized treatment
+              options...
             </p>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -46,9 +53,7 @@ export function ContentReview() {
                 <Button variant="outline" size="sm">
                   Reject
                 </Button>
-                <Button size="sm">
-                  Generate Script
-                </Button>
+                <Button size="sm">Generate Script</Button>
               </div>
             </div>
           </CardContent>
@@ -70,9 +75,9 @@ export function ContentReview() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground line-clamp-3">
-              A comprehensive analysis of the most effective climate change mitigation 
-              strategies currently being implemented worldwide. This post examines both 
-              technological and policy solutions...
+              A comprehensive analysis of the most effective climate change
+              mitigation strategies currently being implemented worldwide. This
+              post examines both technological and policy solutions...
             </p>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -108,9 +113,9 @@ export function ContentReview() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground line-clamp-3">
-              Recent developments in Mars exploration have revealed some surprising 
-              findings that challenge our understanding of the red planet's potential 
-              for supporting life...
+              Recent developments in Mars exploration have revealed some
+              surprising findings that challenge our understanding of the red
+              planet's potential for supporting life...
             </p>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">

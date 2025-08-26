@@ -54,10 +54,12 @@ export function Sidebar() {
   };
 
   return (
-    <div className={cn(
-      'flex flex-col border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300',
-      isCollapsed ? 'w-16' : 'w-64'
-    )}>
+    <div
+      className={cn(
+        'flex flex-col border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300',
+        isCollapsed ? 'w-16' : 'w-64'
+      )}
+    >
       <div className="flex h-16 items-center px-4 border-b">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -67,12 +69,14 @@ export function Sidebar() {
           <span className="text-sm">{isCollapsed ? '▶️' : '◀️'}</span>
         </button>
         {!isCollapsed && (
-          <span className="ml-3 text-sm font-medium text-muted-foreground">Navigation</span>
+          <span className="ml-3 text-sm font-medium text-muted-foreground">
+            Navigation
+          </span>
         )}
       </div>
 
       <nav className="flex-1 space-y-1 p-4">
-        {navigation.map((item) => (
+        {navigation.map(item => (
           <Link
             key={item.name}
             to={item.href}
@@ -83,13 +87,17 @@ export function Sidebar() {
                 : 'text-muted-foreground',
               isCollapsed && 'justify-center px-2'
             )}
-            title={isCollapsed ? `${item.name}: ${item.description}` : undefined}
+            title={
+              isCollapsed ? `${item.name}: ${item.description}` : undefined
+            }
           >
             <span className="text-base">{item.icon}</span>
             {!isCollapsed && (
               <div className="ml-3">
                 <div className="text-sm font-medium">{item.name}</div>
-                <div className="text-xs text-muted-foreground">{item.description}</div>
+                <div className="text-xs text-muted-foreground">
+                  {item.description}
+                </div>
               </div>
             )}
           </Link>

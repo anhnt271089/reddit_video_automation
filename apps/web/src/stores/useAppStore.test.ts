@@ -39,7 +39,7 @@ describe('useAppStore', () => {
       ];
 
       useAppStore.getState().setPosts(mockPosts);
-      
+
       expect(useAppStore.getState().posts).toEqual(mockPosts);
     });
 
@@ -77,7 +77,7 @@ describe('useAppStore', () => {
       };
 
       useAppStore.getState().addPost(newPost);
-      
+
       expect(useAppStore.getState().posts).toHaveLength(1);
       expect(useAppStore.getState().posts[0]).toEqual(newPost);
     });
@@ -86,20 +86,20 @@ describe('useAppStore', () => {
   describe('WebSocket actions', () => {
     it('should set connection state', () => {
       useAppStore.getState().setConnectionState('connected');
-      
+
       expect(useAppStore.getState().connectionState).toBe('connected');
     });
 
     it('should increment reconnect attempts', () => {
       useAppStore.getState().incrementReconnectAttempts();
-      
+
       expect(useAppStore.getState().reconnectAttempts).toBe(1);
     });
 
     it('should reset reconnect attempts', () => {
       useAppStore.setState({ reconnectAttempts: 3 });
       useAppStore.getState().resetReconnectAttempts();
-      
+
       expect(useAppStore.getState().reconnectAttempts).toBe(0);
     });
 

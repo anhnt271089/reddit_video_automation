@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 
 export function Dashboard() {
@@ -14,15 +20,11 @@ export function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Posts
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Active Posts</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">
-              +2 from yesterday
-            </p>
+            <p className="text-xs text-muted-foreground">+2 from yesterday</p>
           </CardContent>
         </Card>
 
@@ -34,9 +36,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">
-              +1 processing
-            </p>
+            <p className="text-xs text-muted-foreground">+1 processing</p>
           </CardContent>
         </Card>
 
@@ -48,23 +48,17 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">5</div>
-            <p className="text-xs text-muted-foreground">
-              3 in queue
-            </p>
+            <p className="text-xs text-muted-foreground">3 in queue</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Success Rate
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">94%</div>
-            <p className="text-xs text-muted-foreground">
-              +2% from last week
-            </p>
+            <p className="text-xs text-muted-foreground">+2% from last week</p>
           </CardContent>
         </Card>
       </div>

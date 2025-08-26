@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Progress } from '../components/ui/ProgressBar';
@@ -26,29 +32,36 @@ export function VideoLibrary() {
                   <p className="text-xs text-muted-foreground">Video</p>
                 </div>
               </div>
-              
+
               <div className="flex-1 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">AI Healthcare Revolution</h3>
                     <p className="text-sm text-muted-foreground">
-                      Generated from: "The Revolutionary Impact of AI on Modern Healthcare"
+                      Generated from: "The Revolutionary Impact of AI on Modern
+                      Healthcare"
                     </p>
                   </div>
                   <Badge variant="default">Completed</Badge>
                 </div>
-                
+
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <span>Duration: 60s</span>
                   <span>1920x1080</span>
                   <span>Size: 45.2 MB</span>
                   <span>Created: 2 hours ago</span>
                 </div>
-                
+
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">Preview</Button>
-                  <Button variant="outline" size="sm">Download</Button>
-                  <Button variant="outline" size="sm">Share</Button>
+                  <Button variant="outline" size="sm">
+                    Preview
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    Download
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    Share
+                  </Button>
                 </div>
               </div>
             </div>
@@ -64,18 +77,21 @@ export function VideoLibrary() {
                   <p className="text-xs text-muted-foreground">Rendering</p>
                 </div>
               </div>
-              
+
               <div className="flex-1 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold">Climate Solutions That Work</h3>
+                    <h3 className="font-semibold">
+                      Climate Solutions That Work
+                    </h3>
                     <p className="text-sm text-muted-foreground">
-                      Generated from: "Climate Change Solutions: What's Actually Working"
+                      Generated from: "Climate Change Solutions: What's Actually
+                      Working"
                     </p>
                   </div>
                   <Badge variant="secondary">Rendering</Badge>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span>Rendering progress: 67%</span>
@@ -83,13 +99,13 @@ export function VideoLibrary() {
                   </div>
                   <Progress value={67} className="h-2" />
                 </div>
-                
+
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <span>Duration: 58s</span>
                   <span>1920x1080</span>
                   <span>Started: 8 minutes ago</span>
                 </div>
-                
+
                 <div className="flex space-x-2">
                   <Button variant="outline" size="sm" disabled>
                     Rendering...
@@ -112,29 +128,33 @@ export function VideoLibrary() {
                   <p className="text-xs text-muted-foreground">Failed</p>
                 </div>
               </div>
-              
+
               <div className="flex-1 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">Space Exploration Updates</h3>
                     <p className="text-sm text-muted-foreground">
-                      Generated from: "Mars Mission Updates: What NASA Isn't Telling Us"
+                      Generated from: "Mars Mission Updates: What NASA Isn't
+                      Telling Us"
                     </p>
                   </div>
                   <Badge variant="destructive">Failed</Badge>
                 </div>
-                
+
                 <div className="text-sm text-red-600">
-                  Error: Asset processing failed. Unable to generate video segments.
+                  Error: Asset processing failed. Unable to generate video
+                  segments.
                 </div>
-                
+
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <span>Duration: N/A</span>
                   <span>Failed: 1 hour ago</span>
                 </div>
-                
+
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">View Logs</Button>
+                  <Button variant="outline" size="sm">
+                    View Logs
+                  </Button>
                   <Button size="sm">Retry</Button>
                 </div>
               </div>
@@ -151,31 +171,37 @@ export function VideoLibrary() {
                   <p className="text-xs text-muted-foreground">Queue</p>
                 </div>
               </div>
-              
+
               <div className="flex-1 space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold">Future of Renewable Energy</h3>
+                    <h3 className="font-semibold">
+                      Future of Renewable Energy
+                    </h3>
                     <p className="text-sm text-muted-foreground">
                       Generated from: "The Future of Solar and Wind Power"
                     </p>
                   </div>
                   <Badge variant="outline">Queued</Badge>
                 </div>
-                
+
                 <div className="text-sm text-muted-foreground">
                   Position in queue: #2 • Estimated start: 12 minutes
                 </div>
-                
+
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <span>Duration: 55s</span>
                   <span>1920x1080</span>
                   <span>Queued: 15 minutes ago</span>
                 </div>
-                
+
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">Edit Assets</Button>
-                  <Button variant="destructive" size="sm">Cancel</Button>
+                  <Button variant="outline" size="sm">
+                    Edit Assets
+                  </Button>
+                  <Button variant="destructive" size="sm">
+                    Cancel
+                  </Button>
                 </div>
               </div>
             </div>
@@ -186,28 +212,38 @@ export function VideoLibrary() {
       <Card>
         <CardHeader>
           <CardTitle>Export History</CardTitle>
-          <CardDescription>Recent video exports and sharing links</CardDescription>
+          <CardDescription>
+            Recent video exports and sharing links
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div>
-                <div className="font-medium text-sm">AI Healthcare Revolution</div>
+                <div className="font-medium text-sm">
+                  AI Healthcare Revolution
+                </div>
                 <div className="text-xs text-muted-foreground">
                   Exported to YouTube • 2 hours ago
                 </div>
               </div>
-              <Button variant="outline" size="sm">View</Button>
+              <Button variant="outline" size="sm">
+                View
+              </Button>
             </div>
-            
+
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div>
-                <div className="font-medium text-sm">Climate Solutions That Work</div>
+                <div className="font-medium text-sm">
+                  Climate Solutions That Work
+                </div>
                 <div className="text-xs text-muted-foreground">
                   Exported as MP4 • Yesterday
                 </div>
               </div>
-              <Button variant="outline" size="sm">Download</Button>
+              <Button variant="outline" size="sm">
+                Download
+              </Button>
             </div>
           </div>
         </CardContent>

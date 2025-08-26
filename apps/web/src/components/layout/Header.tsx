@@ -26,7 +26,9 @@ export function Header() {
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">VA</span>
+              <span className="text-primary-foreground font-bold text-sm">
+                VA
+              </span>
             </div>
             <h1 className="text-xl font-semibold">Video Automation</h1>
           </div>
@@ -39,15 +41,17 @@ export function Header() {
             <span className="text-sm text-muted-foreground">WebSocket:</span>
             {getConnectionBadge()}
           </div>
-          
+
           <div className="h-6 w-px bg-border" />
-          
+
           <Button variant="ghost" size="sm">
             Settings
           </Button>
-          
+
           <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
-            <span className="text-secondary-foreground text-sm font-medium">U</span>
+            <span className="text-secondary-foreground text-sm font-medium">
+              U
+            </span>
           </div>
         </div>
       </div>

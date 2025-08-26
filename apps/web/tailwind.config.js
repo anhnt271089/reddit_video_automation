@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -42,16 +39,16 @@ export default {
           700: '#a16207',
           800: '#854d0e',
           900: '#713f12',
-        }
+        },
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],
       },
       spacing: {
-        '18': '4.5rem',
-        '88': '22rem',
-      }
+        18: '4.5rem',
+        88: '22rem',
+      },
     },
   },
   plugins: [],
-}
+};
