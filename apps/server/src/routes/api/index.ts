@@ -1,9 +1,13 @@
 import { FastifyInstance } from 'fastify';
+import { redditRoutes } from './reddit.js';
 
 export async function apiRoutes(fastify: FastifyInstance) {
   // API route prefix
   fastify.register(
     async function (fastify) {
+      // Register Reddit API routes
+      fastify.register(redditRoutes, { prefix: '/reddit' });
+
       // Placeholder API routes structure
       // Will be expanded in future stories
 
