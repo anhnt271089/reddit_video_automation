@@ -8,6 +8,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.{ts,json}\"",
     "db:migrate": "tsx src/utils/migrations.ts"
   },
   "keywords": [],
@@ -17,6 +20,7 @@
   "dependencies": {
     "@fastify/cors": "^8.5.0",
     "@fastify/websocket": "^8.3.1",
+    "@video-automation/shared-types": "workspace:*",
     "better-sqlite3": "^9.6.0",
     "dotenv": "^16.6.1",
     "fastify": "^4.29.1",
@@ -25,6 +29,9 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.11",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "eslint": "^8.57.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vitest": "^1.6.1"

@@ -1,70 +1,74 @@
-// WebSocket connection states
-export type WebSocketState = 'connecting' | 'connected' | 'disconnected' | 'error';
+/**
+ * Re-export shared types and add web-specific types
+ */
 
-// Post-related types
-export interface Post {
+// Re-export all shared types
+export type {
+  // Data models
+  ProcessingStatus,
+  RedditPost,
+  SceneData,
+  ThumbnailConcept,
+  VideoScript,
+  VideoAsset,
+  BackgroundMusic,
+  MusicSelection,
+  RenderConfig,
+  VideoMetadata,
+  VideoOutput,
+
+  // API types
+  ApiResponse,
+  GetPostsQuery,
+  GetPostsResponse,
+  ApprovePostRequest,
+  GenerateScriptRequest,
+  ApproveScriptRequest,
+  RejectScriptRequest,
+  ApproveBatchAssetsRequest,
+  GetVideosResponse,
+  DownloadVideoRequest,
+  HealthCheckResponse,
+  ValidationError,
+  ApiError,
+
+  // WebSocket types
+  WebSocketMessage,
+  PostStatusUpdateData,
+  ScriptGeneratedData,
+  RenderProgressData,
+  RenderCompleteData,
+  AssetProcessingData,
+  SystemNotificationData,
+  WebSocketEvents,
+  ClientEvents,
+  ServerEvents,
+  ConnectionState,
+  WebSocketOptions,
+} from '@video-automation/shared-types';
+
+// Web-specific types (if any additional types are needed for UI)
+export interface UINotification {
   id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
   title: string;
-  content: string;
-  url: string;
-  score: number;
-  author: string;
-  created_at: string;
-  updated_at: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  message: string;
+  duration?: number;
+  actions?: {
+    label: string;
+    action: () => void;
+  }[];
 }
 
-// Script-related types
-export interface VideoScript {
-  id: string;
-  post_id: string;
-  title: string;
-  content: string;
-  duration_seconds: number;
-  status: 'generating' | 'completed' | 'failed';
-  created_at: string;
-  updated_at: string;
+export interface AppSettings {
+  theme: 'light' | 'dark' | 'system';
+  autoSave: boolean;
+  notificationsEnabled: boolean;
 }
 
-// Asset-related types
-export interface VideoAsset {
-  id: string;
-  script_id: string;
-  type: 'image' | 'video';
-  url: string;
-  title: string;
-  description: string;
-  duration_seconds?: number;
-  start_time: number;
-  end_time: number;
-  created_at: string;
-}
+// Legacy type aliases for backward compatibility (to be removed gradually)
+/** @deprecated Use RedditPost from shared types */
+export type Post = RedditPost;
 
-// Video output types
-export interface VideoOutput {
-  id: string;
-  script_id: string;
-  filename: string;
-  file_path: string;
-  file_size_bytes: number;
-  duration_seconds: number;
-  status: 'rendering' | 'completed' | 'failed';
-  progress_percentage: number;
-  created_at: string;
-  updated_at: string;
-}
-
-// WebSocket message types
-export interface WebSocketMessage {
-  type: 'broadcast' | 'direct';
-  data: {
-    event: string;
-    postId?: string;
-    scriptId?: string;
-    videoId?: string;
-    status?: string;
-    progress?: number;
-    data?: any;
-  };
-  timestamp: string;
-}
+/** @deprecated Use ConnectionState from shared types */
+export type WebSocketState = ConnectionState;

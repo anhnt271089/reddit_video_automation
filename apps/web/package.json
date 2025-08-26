@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
     "test": "vitest",
     "test:coverage": "vitest --coverage"
   },
@@ -17,6 +18,7 @@
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
+    "@video-automation/shared-types": "workspace:*",
     "clsx": "^2.1.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
