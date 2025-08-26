@@ -5,6 +5,8 @@ import { config } from './config/index.js';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api/index.js';
 import { logger } from './utils/logger.js';
+import databasePlugin from './plugins/database.js';
+import './types/fastify.js';
 
 // Create Fastify instance
 const fastify = Fastify({
@@ -13,6 +15,9 @@ const fastify = Fastify({
 
 async function buildServer() {
   try {
+    // Register database plugin first
+    await fastify.register(databasePlugin);
+
     // Register CORS plugin
     await fastify.register(cors, {
       origin: true, // Allow all origins in development

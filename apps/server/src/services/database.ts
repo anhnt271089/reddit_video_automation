@@ -58,4 +58,20 @@ export class DatabaseService {
     const transaction = this.db.transaction(fn);
     return transaction();
   }
+
+  // Database operation methods
+  run(sql: string, params?: unknown[]): Database.RunResult {
+    const stmt = this.db.prepare(sql);
+    return params ? stmt.run(...params) : stmt.run();
+  }
+
+  get<T = unknown>(sql: string, params?: unknown[]): T | undefined {
+    const stmt = this.db.prepare(sql);
+    return params ? (stmt.get(...params) as T) : (stmt.get() as T);
+  }
+
+  all<T = unknown>(sql: string, params?: unknown[]): T[] {
+    const stmt = this.db.prepare(sql);
+    return params ? (stmt.all(...params) as T[]) : (stmt.all() as T[]);
+  }
 }
