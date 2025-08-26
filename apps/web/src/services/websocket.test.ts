@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WebSocketService } from './websocket';
 
 // Mock WebSocket is already set up in test setup
-declare const WebSocket: any;
 
 describe('WebSocketService', () => {
   let wsService: WebSocketService;
@@ -13,7 +12,7 @@ describe('WebSocketService', () => {
     wsService = new WebSocketService('ws://localhost:3001/ws');
     mockStateHandler = vi.fn();
     mockMessageHandler = vi.fn();
-    
+
     wsService.setStateChangeHandler(mockStateHandler);
     wsService.setMessageHandler(mockMessageHandler);
   });
@@ -45,10 +44,10 @@ describe('WebSocketService', () => {
 
   it('should handle send message when connected', async () => {
     wsService.connect();
-    
+
     // Wait for connection
     await new Promise(resolve => setTimeout(resolve, 20));
-    
+
     const result = wsService.send({ test: 'message' });
     expect(result).toBe(true);
   });

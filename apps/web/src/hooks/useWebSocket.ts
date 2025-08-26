@@ -4,12 +4,12 @@ import { useAppStore } from '../stores/useAppStore';
 
 export function useWebSocket(url: string) {
   const wsService = useRef<WebSocketService | null>(null);
-  const { 
-    setConnectionState, 
-    setLastMessage, 
-    handleWebSocketMessage, 
-    incrementReconnectAttempts, 
-    resetReconnectAttempts 
+  const {
+    setConnectionState,
+    setLastMessage,
+    handleWebSocketMessage,
+    incrementReconnectAttempts,
+    resetReconnectAttempts,
   } = useAppStore();
 
   useEffect(() => {
@@ -17,15 +17,15 @@ export function useWebSocket(url: string) {
     wsService.current = new WebSocketService(url);
 
     // Set up event handlers
-    wsService.current.setStateChangeHandler((state) => {
+    wsService.current.setStateChangeHandler(state => {
       setConnectionState(state);
-      
+
       if (state === 'connected') {
         resetReconnectAttempts();
       }
     });
 
-    wsService.current.setMessageHandler((message) => {
+    wsService.current.setMessageHandler(message => {
       setLastMessage(message);
       handleWebSocketMessage(message);
     });
@@ -44,10 +44,17 @@ export function useWebSocket(url: string) {
         wsService.current = null;
       }
     };
-  }, [url, setConnectionState, setLastMessage, handleWebSocketMessage, incrementReconnectAttempts, resetReconnectAttempts]);
+  }, [
+    url,
+    setConnectionState,
+    setLastMessage,
+    handleWebSocketMessage,
+    incrementReconnectAttempts,
+    resetReconnectAttempts,
+  ]);
 
   // Return service methods for external use
-  const send = (message: any) => {
+  const send = (message: unknown) => {
     return wsService.current?.send(message) || false;
   };
 

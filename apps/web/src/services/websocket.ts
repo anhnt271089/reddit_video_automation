@@ -43,7 +43,7 @@ export class WebSocketService {
 
     try {
       this.socket = new WebSocket(this.url);
-      
+
       // Set connection timeout
       this.connectionTimeout = setTimeout(() => {
         if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
@@ -56,7 +56,6 @@ export class WebSocketService {
       this.socket.onmessage = this.handleMessage.bind(this);
       this.socket.onclose = this.handleClose.bind(this);
       this.socket.onerror = this.handleSocketError.bind(this);
-
     } catch (error) {
       this.handleError(error as Error);
     }
@@ -65,16 +64,16 @@ export class WebSocketService {
   disconnect(): void {
     this.isManualClose = true;
     this.clearTimeouts();
-    
+
     if (this.socket) {
       this.socket.close();
       this.socket = null;
     }
-    
+
     this.updateState('disconnected');
   }
 
-  send(message: any): boolean {
+  send(message: unknown): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       console.warn('WebSocket is not connected');
       return false;
@@ -90,8 +89,10 @@ export class WebSocketService {
   }
 
   getConnectionState(): WSState {
-    if (!this.socket) return 'disconnected';
-    
+    if (!this.socket) {
+      return 'disconnected';
+    }
+
     switch (this.socket.readyState) {
       case WebSocket.CONNECTING:
         return 'connecting';
@@ -108,11 +109,11 @@ export class WebSocketService {
   // Private event handlers
   private handleOpen(): void {
     console.log('WebSocket connected');
-    
+
     this.clearTimeouts();
     this.reconnectAttempts = 0;
     this.updateState('connected');
-    
+
     // Start ping/pong to keep connection alive
     this.startPing();
   }
@@ -120,18 +121,17 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       const message: WebSocketMessage = JSON.parse(event.data);
-      
+
       // Handle ping/pong messages
       if (message.data?.event === 'ping') {
         this.send({ event: 'pong' });
         return;
       }
-      
+
       // Emit message to handler
       if (this.onMessage) {
         this.onMessage(message);
       }
-      
     } catch (error) {
       console.error('Failed to parse WebSocket message:', error, event.data);
     }
@@ -139,13 +139,16 @@ export class WebSocketService {
 
   private handleClose(event: CloseEvent): void {
     console.log('WebSocket disconnected:', event.code, event.reason);
-    
+
     this.clearTimeouts();
     this.socket = null;
     this.updateState('disconnected');
 
     // Attempt reconnection if not manually closed
-    if (!this.isManualClose && this.reconnectAttempts < this.maxReconnectAttempts) {
+    if (
+      !this.isManualClose &&
+      this.reconnectAttempts < this.maxReconnectAttempts
+    ) {
       this.scheduleReconnect();
     } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Maximum reconnection attempts reached');
@@ -163,23 +166,31 @@ export class WebSocketService {
     this.clearTimeouts();
     this.updateState('error');
 
-    if (!this.isManualClose && this.reconnectAttempts < this.maxReconnectAttempts) {
+    if (
+      !this.isManualClose &&
+      this.reconnectAttempts < this.maxReconnectAttempts
+    ) {
       this.scheduleReconnect();
     }
   }
 
   private scheduleReconnect(): void {
-    const backoffDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff, max 30s
-    
-    console.log(`Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${backoffDelay}ms`);
-    
+    const backoffDelay = Math.min(
+      1000 * Math.pow(2, this.reconnectAttempts),
+      30000
+    ); // Exponential backoff, max 30s
+
+    console.log(
+      `Scheduling reconnect attempt ${this.reconnectAttempts + 1} in ${backoffDelay}ms`
+    );
+
     this.reconnectInterval = setTimeout(() => {
       this.reconnectAttempts++;
-      
+
       if (this.onReconnectAttempt) {
         this.onReconnectAttempt();
       }
-      
+
       this.connect();
     }, backoffDelay);
   }
@@ -198,12 +209,12 @@ export class WebSocketService {
       clearTimeout(this.reconnectInterval);
       this.reconnectInterval = null;
     }
-    
+
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
-    
+
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
       this.connectionTimeout = null;
@@ -220,7 +231,7 @@ export class WebSocketService {
   destroy(): void {
     this.isManualClose = true;
     this.clearTimeouts();
-    
+
     if (this.socket) {
       this.socket.close();
       this.socket = null;

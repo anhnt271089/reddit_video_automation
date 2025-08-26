@@ -32,7 +32,7 @@ class MockWebSocket {
     }, 10);
   }
 
-  send(data: string) {
+  send() {
     // Mock send - do nothing in tests
   }
 
@@ -44,5 +44,5 @@ class MockWebSocket {
   }
 }
 
-// @ts-ignore
+// @ts-expect-error - Global WebSocket mock for testing
 global.WebSocket = MockWebSocket;
