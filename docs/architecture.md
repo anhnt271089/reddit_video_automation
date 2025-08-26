@@ -159,15 +159,15 @@ interface RedditPost {
 }
 
 type ProcessingStatus =
-  | "idea"
-  | "idea_selected"
-  | "script_generated"
-  | "script_approved"
-  | "script_rejected"
-  | "assets_ready"
-  | "rendering"
-  | "completed"
-  | "failed";
+  | 'idea'
+  | 'idea_selected'
+  | 'script_generated'
+  | 'script_approved'
+  | 'script_rejected'
+  | 'assets_ready'
+  | 'rendering'
+  | 'completed'
+  | 'failed';
 ```
 
 #### Relationships
@@ -217,7 +217,7 @@ interface SceneData {
   content: string;
   keywords: string[];
   duration_estimate: number;
-  emotional_tone: "motivational" | "contemplative" | "urgent";
+  emotional_tone: 'motivational' | 'contemplative' | 'urgent';
 }
 
 interface ThumbnailConcept {
@@ -259,7 +259,7 @@ interface VideoAsset {
   script_id: string;
   scene_number: number;
   pexels_id: number;
-  asset_type: "video" | "image";
+  asset_type: 'video' | 'image';
   url: string;
   local_path: string;
   photographer: string;
@@ -301,7 +301,7 @@ interface BackgroundMusic {
   title: string;
   file_path: string;
   duration: number;
-  emotional_tone: "motivational" | "contemplative" | "urgent" | "neutral";
+  emotional_tone: 'motivational' | 'contemplative' | 'urgent' | 'neutral';
   genre: string;
   volume_level: number;
   loop_enabled: boolean;
@@ -357,7 +357,7 @@ interface VideoOutput {
   duration: number;
   resolution: string;
   render_settings: RenderConfig;
-  status: "rendering" | "completed" | "failed";
+  status: 'rendering' | 'completed' | 'failed';
   thumbnail_paths: string[];
   metadata: VideoMetadata;
   rendered_at?: Date;
@@ -411,14 +411,14 @@ paths:
         - name: status
           in: query
           schema:
-            $ref: "#/components/schemas/ProcessingStatus"
+            $ref: '#/components/schemas/ProcessingStatus'
         - name: limit
           in: query
           schema:
             type: integer
             default: 20
       responses:
-        "200":
+        '200':
           description: List of Reddit posts
           content:
             application/json:
@@ -428,13 +428,13 @@ paths:
                   posts:
                     type: array
                     items:
-                      $ref: "#/components/schemas/RedditPost"
+                      $ref: '#/components/schemas/RedditPost'
                   total:
                     type: integer
     post:
       summary: Trigger Reddit scraping
       responses:
-        "202":
+        '202':
           description: Scraping job initiated
 
   /api/posts/{postId}/approve:
@@ -447,7 +447,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Post approved successfully
 
   /api/scripts:
@@ -466,21 +466,21 @@ paths:
                   type: number
                   default: 60
       responses:
-        "201":
+        '201':
           description: Script generation initiated
 
   /api/scripts/{scriptId}/approve:
     post:
       summary: Approve script for asset generation
       responses:
-        "200":
+        '200':
           description: Script approved, asset generation initiated
 
   /api/scripts/{scriptId}/reject:
     post:
       summary: Reject script and request regeneration
       responses:
-        "200":
+        '200':
           description: Script rejected, regeneration queued
 
   /api/assets/approve-batch:
@@ -496,21 +496,21 @@ paths:
                 script_id:
                   type: string
       responses:
-        "200":
+        '200':
           description: Assets approved, video rendering initiated
 
   /api/videos:
     get:
       summary: Get video outputs
       responses:
-        "200":
+        '200':
           description: List of video outputs
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/VideoOutput"
+                  $ref: '#/components/schemas/VideoOutput'
 
   /api/videos/{videoId}/download:
     get:
@@ -522,7 +522,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Video file download
           content:
             video/mp4:
@@ -557,7 +557,7 @@ components:
         content:
           type: string
         status:
-          $ref: "#/components/schemas/ProcessingStatus"
+          $ref: '#/components/schemas/ProcessingStatus'
         score:
           type: number
         upvotes:
@@ -577,7 +577,7 @@ components:
         scene_breakdown:
           type: array
           items:
-            $ref: "#/components/schemas/SceneData"
+            $ref: '#/components/schemas/SceneData'
         titles:
           type: array
           items:
@@ -1238,17 +1238,17 @@ interface AppState {
 const useAppStore = create<AppState>()((set, get) => ({
   posts: {
     items: [],
-    filter: "all",
+    filter: 'all',
     loading: false,
     selectedIds: [],
   },
 
   approvePost: (postId: string) => {
-    set((state) => ({
+    set(state => ({
       posts: {
         ...state.posts,
-        items: state.posts.items.map((post) =>
-          post.id === postId ? { ...post, status: "idea_selected" } : post,
+        items: state.posts.items.map(post =>
+          post.id === postId ? { ...post, status: 'idea_selected' } : post
         ),
       },
     }));
@@ -1296,17 +1296,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 ```typescript
 class ApiClient {
-  private baseURL = process.env.VITE_API_URL || "http://localhost:3001";
-  private token = localStorage.getItem("auth_token");
+  private baseURL = process.env.VITE_API_URL || 'http://localhost:3001';
+  private token = localStorage.getItem('auth_token');
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const config: RequestInit = {
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
@@ -1323,14 +1323,14 @@ class ApiClient {
   }
 
   async getPosts(
-    filter?: PostFilter,
+    filter?: PostFilter
   ): Promise<{ posts: RedditPost[]; total: number }> {
-    const queryParams = filter ? `?status=${filter}` : "";
+    const queryParams = filter ? `?status=${filter}` : '';
     return this.request(`/api/posts${queryParams}`);
   }
 
   async approvePost(postId: string): Promise<RedditPost> {
-    return this.request(`/api/posts/${postId}/approve`, { method: "POST" });
+    return this.request(`/api/posts/${postId}/approve`, { method: 'POST' });
   }
 }
 
@@ -1350,12 +1350,12 @@ export const usePosts = () => {
         const data = await apiClient.getPosts(filter);
         setPosts(data.posts);
       } catch (error) {
-        console.error("Failed to load posts:", error);
+        console.error('Failed to load posts:', error);
       } finally {
         setLoading(false);
       }
     },
-    [setPosts, setLoading],
+    [setPosts, setLoading]
   );
 
   return {
