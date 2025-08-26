@@ -136,18 +136,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 export class VideoService {
   constructor(
     private readonly db: Database,
-    private readonly logger: Logger,
+    private readonly logger: Logger
   ) {}
 
   async createVideo(data: CreateVideoRequest): Promise<Video> {
-    this.logger.info("Creating video", { data });
+    this.logger.info('Creating video', { data });
 
     try {
       // Implementation
       return result;
     } catch (error) {
-      this.logger.error("Failed to create video", { error, data });
-      throw new ServiceError("Video creation failed");
+      this.logger.error('Failed to create video', { error, data });
+      throw new ServiceError('Video creation failed');
     }
   }
 }
@@ -158,17 +158,17 @@ export class VideoService {
 ### Test Structure
 
 ```typescript
-describe("VideoService", () => {
+describe('VideoService', () => {
   let service: VideoService;
 
   beforeEach(() => {
     // Setup
   });
 
-  describe("createVideo", () => {
-    it("should create video with valid data", async () => {
+  describe('createVideo', () => {
+    it('should create video with valid data', async () => {
       // Arrange
-      const mockData = { title: "Test Video" };
+      const mockData = { title: 'Test Video' };
 
       // Act
       const result = await service.createVideo(mockData);
@@ -176,7 +176,7 @@ describe("VideoService", () => {
       // Assert
       expect(result).toMatchObject({
         id: expect.any(String),
-        title: "Test Video",
+        title: 'Test Video',
       });
     });
   });
@@ -199,20 +199,20 @@ describe("VideoService", () => {
 export class ValidationError extends Error {
   constructor(
     message: string,
-    public field: string,
+    public field: string
   ) {
     super(message);
-    this.name = "ValidationError";
+    this.name = 'ValidationError';
   }
 }
 
 export class ServiceError extends Error {
   constructor(
     message: string,
-    public code?: string,
+    public code?: string
   ) {
     super(message);
-    this.name = "ServiceError";
+    this.name = 'ServiceError';
   }
 }
 ```

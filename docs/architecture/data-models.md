@@ -41,15 +41,15 @@ interface RedditPost {
 }
 
 type ProcessingStatus =
-  | "idea"
-  | "idea_selected"
-  | "script_generated"
-  | "script_approved"
-  | "script_rejected"
-  | "assets_ready"
-  | "rendering"
-  | "completed"
-  | "failed";
+  | 'idea'
+  | 'idea_selected'
+  | 'script_generated'
+  | 'script_approved'
+  | 'script_rejected'
+  | 'assets_ready'
+  | 'rendering'
+  | 'completed'
+  | 'failed';
 ```
 
 ### Relationships
@@ -99,7 +99,7 @@ interface SceneData {
   content: string;
   keywords: string[];
   duration_estimate: number;
-  emotional_tone: "motivational" | "contemplative" | "urgent";
+  emotional_tone: 'motivational' | 'contemplative' | 'urgent';
 }
 
 interface ThumbnailConcept {
@@ -141,7 +141,7 @@ interface VideoAsset {
   script_id: string;
   scene_number: number;
   pexels_id: number;
-  asset_type: "video" | "image";
+  asset_type: 'video' | 'image';
   url: string;
   local_path: string;
   photographer: string;
@@ -183,7 +183,7 @@ interface BackgroundMusic {
   title: string;
   file_path: string;
   duration: number;
-  emotional_tone: "motivational" | "contemplative" | "urgent" | "neutral";
+  emotional_tone: 'motivational' | 'contemplative' | 'urgent' | 'neutral';
   genre: string;
   volume_level: number;
   loop_enabled: boolean;
@@ -239,7 +239,7 @@ interface VideoOutput {
   duration: number;
   resolution: string;
   render_settings: RenderConfig;
-  status: "rendering" | "completed" | "failed";
+  status: 'rendering' | 'completed' | 'failed';
   thumbnail_paths: string[];
   metadata: VideoMetadata;
   rendered_at?: Date;

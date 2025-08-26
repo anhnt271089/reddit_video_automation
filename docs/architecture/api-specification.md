@@ -25,14 +25,14 @@ paths:
         - name: status
           in: query
           schema:
-            $ref: "#/components/schemas/ProcessingStatus"
+            $ref: '#/components/schemas/ProcessingStatus'
         - name: limit
           in: query
           schema:
             type: integer
             default: 20
       responses:
-        "200":
+        '200':
           description: List of Reddit posts
           content:
             application/json:
@@ -42,13 +42,13 @@ paths:
                   posts:
                     type: array
                     items:
-                      $ref: "#/components/schemas/RedditPost"
+                      $ref: '#/components/schemas/RedditPost'
                   total:
                     type: integer
     post:
       summary: Trigger Reddit scraping
       responses:
-        "202":
+        '202':
           description: Scraping job initiated
 
   /api/posts/{postId}/approve:
@@ -61,7 +61,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Post approved successfully
 
   /api/scripts:
@@ -80,21 +80,21 @@ paths:
                   type: number
                   default: 60
       responses:
-        "201":
+        '201':
           description: Script generation initiated
 
   /api/scripts/{scriptId}/approve:
     post:
       summary: Approve script for asset generation
       responses:
-        "200":
+        '200':
           description: Script approved, asset generation initiated
 
   /api/scripts/{scriptId}/reject:
     post:
       summary: Reject script and request regeneration
       responses:
-        "200":
+        '200':
           description: Script rejected, regeneration queued
 
   /api/assets/approve-batch:
@@ -110,21 +110,21 @@ paths:
                 script_id:
                   type: string
       responses:
-        "200":
+        '200':
           description: Assets approved, video rendering initiated
 
   /api/videos:
     get:
       summary: Get video outputs
       responses:
-        "200":
+        '200':
           description: List of video outputs
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/VideoOutput"
+                  $ref: '#/components/schemas/VideoOutput'
 
   /api/videos/{videoId}/download:
     get:
@@ -136,7 +136,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: Video file download
           content:
             video/mp4:
@@ -171,7 +171,7 @@ components:
         content:
           type: string
         status:
-          $ref: "#/components/schemas/ProcessingStatus"
+          $ref: '#/components/schemas/ProcessingStatus'
         score:
           type: number
         upvotes:
@@ -191,7 +191,7 @@ components:
         scene_breakdown:
           type: array
           items:
-            $ref: "#/components/schemas/SceneData"
+            $ref: '#/components/schemas/SceneData'
         titles:
           type: array
           items:

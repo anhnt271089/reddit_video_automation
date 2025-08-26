@@ -138,17 +138,17 @@ interface AppState {
 const useAppStore = create<AppState>()((set, get) => ({
   posts: {
     items: [],
-    filter: "all",
+    filter: 'all',
     loading: false,
     selectedIds: [],
   },
 
   approvePost: (postId: string) => {
-    set((state) => ({
+    set(state => ({
       posts: {
         ...state.posts,
-        items: state.posts.items.map((post) =>
-          post.id === postId ? { ...post, status: "idea_selected" } : post,
+        items: state.posts.items.map(post =>
+          post.id === postId ? { ...post, status: 'idea_selected' } : post
         ),
       },
     }));
@@ -196,17 +196,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 ```typescript
 class ApiClient {
-  private baseURL = process.env.VITE_API_URL || "http://localhost:3001";
-  private token = localStorage.getItem("auth_token");
+  private baseURL = process.env.VITE_API_URL || 'http://localhost:3001';
+  private token = localStorage.getItem('auth_token');
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const config: RequestInit = {
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
@@ -223,14 +223,14 @@ class ApiClient {
   }
 
   async getPosts(
-    filter?: PostFilter,
+    filter?: PostFilter
   ): Promise<{ posts: RedditPost[]; total: number }> {
-    const queryParams = filter ? `?status=${filter}` : "";
+    const queryParams = filter ? `?status=${filter}` : '';
     return this.request(`/api/posts${queryParams}`);
   }
 
   async approvePost(postId: string): Promise<RedditPost> {
-    return this.request(`/api/posts/${postId}/approve`, { method: "POST" });
+    return this.request(`/api/posts/${postId}/approve`, { method: 'POST' });
   }
 }
 
@@ -250,12 +250,12 @@ export const usePosts = () => {
         const data = await apiClient.getPosts(filter);
         setPosts(data.posts);
       } catch (error) {
-        console.error("Failed to load posts:", error);
+        console.error('Failed to load posts:', error);
       } finally {
         setLoading(false);
       }
     },
-    [setPosts, setLoading],
+    [setPosts, setLoading]
   );
 
   return {
