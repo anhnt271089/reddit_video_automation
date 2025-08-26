@@ -5,6 +5,7 @@
 
 import winston from 'winston';
 import { RedditAuthService } from './auth.js';
+import { RateLimiter, redditRateLimiter } from '../../utils/rateLimiter.js';
 
 // Reddit API Response Types
 export interface RedditPost {
@@ -102,7 +103,8 @@ export class RedditApiClient {
 
   constructor(
     private readonly authService: RedditAuthService,
-    private readonly logger: winston.Logger
+    private readonly logger: winston.Logger,
+    private readonly rateLimiter: RateLimiter = redditRateLimiter
   ) {}
 
   /**
@@ -112,6 +114,12 @@ export class RedditApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    // Determine priority based on endpoint
+    const priority = this.getEndpointPriority(endpoint);
+
+    // Wait for rate limiter token
+    await this.rateLimiter.acquire(priority, endpoint);
+
     const accessToken = await this.authService.getValidAccessToken();
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -205,6 +213,9 @@ export class RedditApiClient {
           throw lastError || new Error('Unknown error occurred');
         }
 
+        // Update rate limiter from headers
+        this.rateLimiter.updateFromHeaders(response.headers);
+
         const data = await response.json();
 
         this.logger.debug('Reddit API request successful', {
@@ -241,13 +252,6 @@ export class RedditApiClient {
     }
 
     throw lastError || new Error('Max retries exceeded');
-  }
-
-  /**
-   * Sleep for specified milliseconds
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -397,5 +401,53 @@ export class RedditApiClient {
       });
       return false;
     }
+  }
+
+  /**
+   * Get rate limiter statistics
+   */
+  getRateLimiterStats() {
+    return this.rateLimiter.getStats();
+  }
+
+  /**
+   * Determine endpoint priority for rate limiting
+   * Higher values = higher priority
+   */
+  private getEndpointPriority(endpoint: string): number {
+    // Authentication endpoints have highest priority
+    if (endpoint.includes('/api/v1/me')) {
+      return 10;
+    }
+
+    // Subreddit info endpoints have high priority
+    if (endpoint.includes('/about')) {
+      return 8;
+    }
+
+    // Top and hot posts have medium-high priority
+    if (endpoint.includes('/top') || endpoint.includes('/hot')) {
+      return 6;
+    }
+
+    // Search and specific posts have medium priority
+    if (endpoint.includes('/search') || endpoint.includes('/comments/')) {
+      return 4;
+    }
+
+    // New posts have lower priority
+    if (endpoint.includes('/new')) {
+      return 2;
+    }
+
+    // Default priority
+    return 1;
+  }
+
+  /**
+   * Sleep for specified milliseconds
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
