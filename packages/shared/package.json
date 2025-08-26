@@ -1,0 +1,36 @@
+{
+  "name": "@video-automation/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types and interfaces for video automation platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.{ts,json}\""
+  },
+  "keywords": [
+    "typescript",
+    "types",
+    "shared",
+    "video-automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.15.0",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.0.0"
+  }
+}
