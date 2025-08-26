@@ -22,7 +22,7 @@ export class WebSocketService {
     };
 
     this.clients.set(clientId, client);
-    
+
     logger.info(`WebSocket client connected: ${clientId}`);
     logger.info(`Total connected clients: ${this.clients.size}`);
 
@@ -75,13 +75,15 @@ export class WebSocketService {
       }
     });
 
-    logger.debug(`Broadcast sent to ${successCount} clients, ${errorCount} errors`);
+    logger.debug(
+      `Broadcast sent to ${successCount} clients, ${errorCount} errors`
+    );
   }
 
   // Send message to specific client
   sendToClient(clientId: string, message: any): boolean {
     const client = this.clients.get(clientId);
-    
+
     if (!client) {
       logger.warn(`Client not found: ${clientId}`);
       return false;
@@ -94,7 +96,7 @@ export class WebSocketService {
           data: message,
           timestamp: new Date().toISOString(),
         });
-        
+
         client.socket.send(payload);
         return true;
       } else {
@@ -138,7 +140,11 @@ export class WebSocketService {
     });
   }
 
-  broadcastRenderProgress(postId: string, progress: number, status: string): void {
+  broadcastRenderProgress(
+    postId: string,
+    progress: number,
+    status: string
+  ): void {
     this.broadcast({
       event: 'render_progress',
       postId,

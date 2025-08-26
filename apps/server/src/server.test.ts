@@ -23,7 +23,7 @@ describe('Fastify Server', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      
+
       const body = JSON.parse(response.body);
       expect(body).toMatchObject({
         status: 'ok',
@@ -43,7 +43,7 @@ describe('Fastify Server', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      
+
       const body = JSON.parse(response.body);
       expect(body.message).toBe('Posts API endpoint - coming soon');
     });
@@ -55,7 +55,7 @@ describe('Fastify Server', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      
+
       const body = JSON.parse(response.body);
       expect(body.message).toBe('Scripts API endpoint - coming soon');
     });
@@ -67,7 +67,7 @@ describe('Fastify Server', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      
+
       const body = JSON.parse(response.body);
       expect(body.message).toBe('Assets API endpoint - coming soon');
     });
@@ -79,7 +79,7 @@ describe('Fastify Server', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      
+
       const body = JSON.parse(response.body);
       expect(body.message).toBe('Videos API endpoint - coming soon');
     });

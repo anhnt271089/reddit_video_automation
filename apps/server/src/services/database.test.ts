@@ -7,9 +7,9 @@ describe('DatabaseService', () => {
   const testDbPath = ':memory:'; // Use in-memory database for tests
 
   beforeEach(() => {
-    db = new DatabaseService({ 
+    db = new DatabaseService({
       path: testDbPath,
-      verbose: false 
+      verbose: false,
     });
   });
 
@@ -26,7 +26,9 @@ describe('DatabaseService', () => {
     });
 
     it('should enable foreign keys', () => {
-      const result = db.getDatabase().prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };
+      const result = db.getDatabase().prepare('PRAGMA foreign_keys').get() as {
+        foreign_keys: number;
+      };
       expect(result.foreign_keys).toBe(1);
     });
   });
@@ -34,7 +36,7 @@ describe('DatabaseService', () => {
   describe('health check', () => {
     it('should return healthy status', () => {
       const health = db.healthCheck();
-      
+
       expect(health.status).toBe('healthy');
       expect(health.connected).toBe(true);
     });
@@ -43,21 +45,27 @@ describe('DatabaseService', () => {
   describe('transactions', () => {
     it('should execute transaction successfully', () => {
       // Create a simple test table
-      db.getDatabase().exec('CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)');
+      db.getDatabase().exec(
+        'CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)'
+      );
 
       const result = db.transaction(() => {
-        const insert = db.getDatabase().prepare('INSERT INTO test (name) VALUES (?)');
+        const insert = db
+          .getDatabase()
+          .prepare('INSERT INTO test (name) VALUES (?)');
         const insertResult = insert.run('test item');
-        
-        const select = db.getDatabase().prepare('SELECT * FROM test WHERE id = ?');
+
+        const select = db
+          .getDatabase()
+          .prepare('SELECT * FROM test WHERE id = ?');
         const row = select.get(insertResult.lastInsertRowid);
-        
+
         return row;
       });
 
       expect(result).toMatchObject({
         id: 1,
-        name: 'test item'
+        name: 'test item',
       });
     });
   });

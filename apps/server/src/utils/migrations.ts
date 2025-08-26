@@ -30,7 +30,7 @@ export class MigrationRunner {
 
       // Get all migration files
       const migrationFiles = this.getMigrationFiles();
-      
+
       // Get already run migrations
       const runMigrations = this.getRunMigrations();
 
@@ -68,7 +68,7 @@ export class MigrationRunner {
         executed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    
+
     this.db.getDatabase().exec(createTable);
   }
 
@@ -84,7 +84,9 @@ export class MigrationRunner {
   }
 
   private getRunMigrations(): string[] {
-    const stmt = this.db.getDatabase().prepare('SELECT filename FROM migrations ORDER BY id');
+    const stmt = this.db
+      .getDatabase()
+      .prepare('SELECT filename FROM migrations ORDER BY id');
     const results = stmt.all() as { filename: string }[];
     return results.map(row => row.filename);
   }
@@ -92,7 +94,7 @@ export class MigrationRunner {
   private runMigration(filename: string): void {
     const filePath = join(this.migrationsPath, filename);
     const sql = readFileSync(filePath, 'utf8');
-    
+
     // Split by semicolon and execute each statement
     const statements = sql
       .split(';')
@@ -107,22 +109,23 @@ export class MigrationRunner {
   }
 
   private recordMigration(filename: string): void {
-    const stmt = this.db.getDatabase().prepare(
-      'INSERT INTO migrations (filename) VALUES (?)'
-    );
+    const stmt = this.db
+      .getDatabase()
+      .prepare('INSERT INTO migrations (filename) VALUES (?)');
     stmt.run(filename);
   }
 }
 
 // CLI runner for migrations
 if (typeof require !== 'undefined' && require.main === module) {
-  const dbService = new DatabaseService({ 
-    path: join(process.cwd(), 'data', 'video_automation.db') 
+  const dbService = new DatabaseService({
+    path: join(process.cwd(), 'data', 'video_automation.db'),
   });
-  
+
   const runner = new MigrationRunner(dbService);
-  
-  runner.runMigrations()
+
+  runner
+    .runMigrations()
     .then(result => {
       if (result.success) {
         console.log('Migrations completed successfully');

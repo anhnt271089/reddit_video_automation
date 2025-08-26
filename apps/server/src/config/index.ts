@@ -39,29 +39,40 @@ function validateEnvVar(name: string, defaultValue?: string): string {
 
 function createConfig(): Config {
   const nodeEnv = process.env.NODE_ENV || 'development';
-  
+
   return {
     nodeEnv,
     port: parseInt(process.env.PORT || '3001', 10),
-    
+
     database: {
-      path: process.env.DATABASE_URL || join(process.cwd(), 'data', 'video_automation.db'),
+      path:
+        process.env.DATABASE_URL ||
+        join(process.cwd(), 'data', 'video_automation.db'),
     },
-    
+
     apiKeys: {
       reddit: {
         clientId: validateEnvVar('REDDIT_CLIENT_ID', 'your_reddit_client_id'),
-        clientSecret: validateEnvVar('REDDIT_CLIENT_SECRET', 'your_reddit_client_secret'),
+        clientSecret: validateEnvVar(
+          'REDDIT_CLIENT_SECRET',
+          'your_reddit_client_secret'
+        ),
       },
       claude: validateEnvVar('CLAUDE_API_KEY', 'your_claude_api_key'),
       pexels: validateEnvVar('PEXELS_API_KEY', 'your_pexels_api_key'),
-      elevenLabs: validateEnvVar('ELEVENLABS_API_KEY', 'your_elevenlabs_api_key'),
+      elevenLabs: validateEnvVar(
+        'ELEVENLABS_API_KEY',
+        'your_elevenlabs_api_key'
+      ),
     },
-    
+
     jwt: {
-      secret: validateEnvVar('JWT_SECRET', 'your_jwt_secret_key_change_in_production'),
+      secret: validateEnvVar(
+        'JWT_SECRET',
+        'your_jwt_secret_key_change_in_production'
+      ),
     },
-    
+
     logLevel: process.env.LOG_LEVEL || 'info',
   };
 }
@@ -78,7 +89,7 @@ function validateConfig(config: Config): void {
   // API key validation (check for placeholder values)
   const placeholderKeys = [
     'your_reddit_client_id',
-    'your_reddit_client_secret', 
+    'your_reddit_client_secret',
     'your_claude_api_key',
     'your_pexels_api_key',
     'your_elevenlabs_api_key',
@@ -87,19 +98,19 @@ function validateConfig(config: Config): void {
   if (placeholderKeys.includes(config.apiKeys.reddit.clientId)) {
     console.warn('Warning: Using placeholder Reddit client ID');
   }
-  
+
   if (placeholderKeys.includes(config.apiKeys.reddit.clientSecret)) {
     console.warn('Warning: Using placeholder Reddit client secret');
   }
-  
+
   if (placeholderKeys.includes(config.apiKeys.claude)) {
     console.warn('Warning: Using placeholder Claude API key');
   }
-  
+
   if (placeholderKeys.includes(config.apiKeys.pexels)) {
     console.warn('Warning: Using placeholder Pexels API key');
   }
-  
+
   if (placeholderKeys.includes(config.apiKeys.elevenLabs)) {
     console.warn('Warning: Using placeholder ElevenLabs API key');
   }

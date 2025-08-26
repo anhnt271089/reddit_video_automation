@@ -23,7 +23,7 @@ export class DatabaseService {
 
     // Enable foreign keys
     this.db.pragma('foreign_keys = ON');
-    
+
     // Configure for better performance
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');

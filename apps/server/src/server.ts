@@ -34,7 +34,7 @@ async function buildServer() {
     fastify.register(async function (fastify) {
       fastify.get('/ws', { websocket: true }, (connection, request) => {
         logger.info('WebSocket connection established');
-        
+
         connection.socket.on('message', (message: any) => {
           // Echo message back for now
           connection.socket.send(`Echo: ${message}`);
@@ -56,7 +56,7 @@ async function buildServer() {
 async function start() {
   try {
     const server = await buildServer();
-    
+
     const address = await server.listen({
       port: config.port,
       host: '0.0.0.0',

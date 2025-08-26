@@ -7,21 +7,21 @@ const logFormat = winston.format.combine(
     format: 'YYYY-MM-DD HH:mm:ss',
   }),
   winston.format.errors({ stack: true }),
-  winston.format.printf((info) => {
+  winston.format.printf(info => {
     const { timestamp, level, message, stack, ...meta } = info;
-    
+
     let log = `${timestamp} [${level.toUpperCase()}]: ${message}`;
-    
+
     // Add stack trace for errors
     if (stack) {
       log += `\n${stack}`;
     }
-    
+
     // Add metadata if present
     if (Object.keys(meta).length > 0) {
       log += `\nMeta: ${JSON.stringify(meta, null, 2)}`;
     }
-    
+
     return log;
   })
 );
@@ -33,10 +33,7 @@ const transports: winston.transport[] = [];
 if (config.nodeEnv === 'development') {
   transports.push(
     new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        logFormat
-      ),
+      format: winston.format.combine(winston.format.colorize(), logFormat),
     })
   );
 } else {
@@ -75,7 +72,7 @@ export const logger = winston.createLogger({
 export function createRequestLogger() {
   return async (request: any, reply: any) => {
     const start = Date.now();
-    
+
     // Log incoming request
     logger.info(`${request.method} ${request.url}`, {
       method: request.method,
@@ -88,16 +85,19 @@ export function createRequestLogger() {
     reply.raw.on('finish', () => {
       const duration = Date.now() - start;
       const statusCode = reply.raw.statusCode;
-      
+
       const logLevel = statusCode >= 400 ? 'warn' : 'info';
-      
-      logger[logLevel](`${request.method} ${request.url} - ${statusCode} (${duration}ms)`, {
-        method: request.method,
-        url: request.url,
-        statusCode,
-        duration,
-        ip: request.ip,
-      });
+
+      logger[logLevel](
+        `${request.method} ${request.url} - ${statusCode} (${duration}ms)`,
+        {
+          method: request.method,
+          url: request.url,
+          statusCode,
+          duration,
+          ip: request.ip,
+        }
+      );
     });
   };
 }
@@ -110,7 +110,10 @@ export const loggers = {
       logger.debug('Database query', { query, params });
     },
     error: (operation: string, error: Error) => {
-      logger.error(`Database error during ${operation}`, { error: error.message, stack: error.stack });
+      logger.error(`Database error during ${operation}`, {
+        error: error.message,
+        stack: error.stack,
+      });
     },
   },
 
@@ -119,7 +122,12 @@ export const loggers = {
     request: (method: string, endpoint: string, params?: any) => {
       logger.info(`API ${method} ${endpoint}`, { method, endpoint, params });
     },
-    response: (method: string, endpoint: string, statusCode: number, duration: number) => {
+    response: (
+      method: string,
+      endpoint: string,
+      statusCode: number,
+      duration: number
+    ) => {
       logger.info(`API ${method} ${endpoint} - ${statusCode} (${duration}ms)`, {
         method,
         endpoint,
