@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { RedditApiClient, RedditListing, RedditPost } from './client.js';
 import { RedditAuthService } from './auth.js';
+import { RateLimiter } from '../../utils/rateLimiter.js';
 
 // Mock environment variables
 process.env.REDDIT_USER_AGENT = 'test-app/1.0';
@@ -17,6 +18,7 @@ describe('RedditApiClient', () => {
   let apiClient: RedditApiClient;
   let mockAuthService: RedditAuthService;
   let mockLogger: any;
+  let mockRateLimiter: RateLimiter;
 
   beforeEach(() => {
     // Create mock auth service
@@ -32,7 +34,26 @@ describe('RedditApiClient', () => {
       error: vi.fn(),
     };
 
-    apiClient = new RedditApiClient(mockAuthService, mockLogger);
+    // Create mock rate limiter
+    mockRateLimiter = {
+      acquire: vi.fn().mockResolvedValue(undefined),
+      updateFromHeaders: vi.fn(),
+      getStats: vi.fn().mockReturnValue({
+        tokensRemaining: 60,
+        maxTokens: 60,
+        queueSize: 0,
+        totalRequests: 0,
+        throttledRequests: 0,
+        averageWaitTime: 0,
+        lastRefill: Date.now(),
+      }),
+    } as unknown as RateLimiter;
+
+    apiClient = new RedditApiClient(
+      mockAuthService,
+      mockLogger,
+      mockRateLimiter
+    );
   });
 
   afterEach(() => {
