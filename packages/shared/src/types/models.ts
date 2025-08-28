@@ -76,6 +76,58 @@ export interface VideoScript {
   approved: boolean;
   generated_at: Date;
   approved_at?: Date;
+  // New versioning fields
+  generation_queue_id?: string;
+  generation_started_at?: Date;
+  generation_completed_at?: Date;
+  claude_model?: string;
+  prompt_version?: string;
+  quality_score?: number;
+}
+
+export interface ScriptVersion {
+  id: string;
+  post_id: string;
+  version_number: number;
+  script_content: string;
+  scene_breakdown: SceneData[];
+  duration_target: number;
+  titles: string[];
+  description: string;
+  thumbnail_suggestions: ThumbnailConcept[];
+  generation_params: {
+    style: 'motivational' | 'educational' | 'entertainment' | 'storytelling';
+    targetDuration: number;
+    sceneCount: number;
+  };
+  quality_score?: number;
+  claude_model?: string;
+  prompt_version?: string;
+  generation_duration?: number; // milliseconds
+  created_at: Date;
+  is_active: boolean;
+}
+
+export type QueueStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface GenerationQueueJob {
+  id: string;
+  post_id: string;
+  status: QueueStatus;
+  priority: number;
+  attempts: number;
+  max_attempts: number;
+  generation_params: {
+    style: 'motivational' | 'educational' | 'entertainment' | 'storytelling';
+    targetDuration: number;
+    sceneCount?: number;
+  };
+  progress_percentage: number;
+  error_message?: string;
+  created_at: Date;
+  started_at?: Date;
+  completed_at?: Date;
+  worker_id?: string;
 }
 
 export interface VideoAsset {

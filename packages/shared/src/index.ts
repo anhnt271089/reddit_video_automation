@@ -17,6 +17,10 @@ export type {
   RenderConfig,
   VideoMetadata,
   VideoOutput,
+  // New versioning types
+  ScriptVersion,
+  QueueStatus,
+  GenerationQueueJob,
 } from './types/models.js';
 
 // API interfaces
