@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildServer } from './server.js';
 import { FastifyInstance } from 'fastify';
+import dotenv from 'dotenv';
+
+// Load test environment
+dotenv.config({ path: '.env.test' });
 
 describe('Fastify Server', () => {
   let server: FastifyInstance;

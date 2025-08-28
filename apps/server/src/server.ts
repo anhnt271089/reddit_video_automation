@@ -4,6 +4,7 @@ import websocket from '@fastify/websocket';
 import { config } from './config/index.js';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api/index.js';
+import { authRoutes } from './routes/auth/index.js';
 import { logger } from './utils/logger.js';
 import databasePlugin from './plugins/database.js';
 import './types/fastify.js';
@@ -34,6 +35,7 @@ async function buildServer() {
     // Register routes
     await fastify.register(healthRoutes);
     await fastify.register(apiRoutes);
+    await fastify.register(authRoutes);
 
     // WebSocket route (basic setup)
     fastify.register(async function (fastify) {
@@ -41,8 +43,27 @@ async function buildServer() {
         logger.info('WebSocket connection established');
 
         connection.socket.on('message', (message: any) => {
-          // Echo message back for now
-          connection.socket.send(`Echo: ${message}`);
+          // Parse and handle message properly
+          try {
+            const parsedMessage = JSON.parse(message);
+            
+            // Handle ping/pong
+            if (parsedMessage.event === 'ping') {
+              connection.socket.send(JSON.stringify({ event: 'pong' }));
+            } else {
+              // Echo other messages as JSON
+              connection.socket.send(JSON.stringify({
+                event: 'echo',
+                data: parsedMessage
+              }));
+            }
+          } catch (error) {
+            // If not JSON, send as text echo
+            connection.socket.send(JSON.stringify({
+              event: 'echo',
+              data: { message: message.toString() }
+            }));
+          }
         });
 
         connection.socket.on('close', () => {

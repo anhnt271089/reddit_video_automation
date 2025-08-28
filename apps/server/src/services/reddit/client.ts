@@ -123,15 +123,23 @@ export class RedditApiClient {
     const accessToken = await this.authService.getValidAccessToken();
     const url = `${this.baseUrl}${endpoint}`;
 
+    const userAgent = process.env.REDDIT_USER_AGENT || 'video-automation/1.0';
+    
     const requestOptions: RequestInit = {
       ...options,
       headers: {
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'video-automation/1.0',
+        'User-Agent': userAgent,
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
     };
+
+    this.logger.info('Making request with User-Agent', { 
+      userAgent,
+      endpoint,
+      tokenLength: accessToken.length 
+    });
 
     let lastError: Error | null = null;
 
@@ -192,8 +200,11 @@ export class RedditApiClient {
           this.logger.error('Reddit API request failed', {
             endpoint,
             status: response.status,
+            statusText: response.statusText,
             error: errorData,
+            errorText,
             attempt: attempt + 1,
+            headers: Object.fromEntries(response.headers.entries()),
           });
 
           // Don't retry on authentication errors
@@ -392,8 +403,10 @@ export class RedditApiClient {
    */
   async testConnection(): Promise<boolean> {
     try {
-      await this.getUserInfo();
-      this.logger.info('Reddit API connection test successful');
+      const userInfo = await this.getUserInfo();
+      this.logger.info('Reddit API connection test successful', {
+        username: userInfo.name,
+      });
       return true;
     } catch (error) {
       this.logger.error('Reddit API connection test failed', {

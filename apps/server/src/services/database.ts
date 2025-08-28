@@ -12,12 +12,13 @@ export class DatabaseService {
 
   constructor(config: DatabaseConfig) {
     // Ensure data directory exists
-    const dataDir = join(process.cwd(), 'data');
+    const dbPath = config.path;
+    const dataDir = join(dbPath, '..');
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true });
     }
 
-    this.db = new Database(config.path, {
+    this.db = new Database(dbPath, {
       verbose: config.verbose ? console.log : undefined,
     });
 
