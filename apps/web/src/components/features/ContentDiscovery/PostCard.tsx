@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
 import { Badge } from '../../ui/Badge';
+import { Button } from '../../ui/Button';
 import type { RedditPost } from './types';
 
 interface PostCardProps {
   post: RedditPost;
-  onApprove: (postId: string) => void;
-  onReject: (postId: string) => void;
-  onGenerateScript: (postId: string) => void;
-  isSelected: boolean;
-  onSelect: (postId: string, selected: boolean) => void;
+  onApprove?: (postId: string) => void;
+  onReject?: (postId: string) => void;
+  onGenerateScript?: (postId: string) => void;
+  isSelected?: boolean;
+  onSelect?: (postId: string) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -18,193 +19,177 @@ export const PostCard: React.FC<PostCardProps> = ({
   onReject,
   onGenerateScript,
   isSelected,
-  onSelect
+  onSelect,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'approved': return 'success';
-      case 'rejected': return 'destructive';
-      case 'script_generated': return 'info';
-      default: return 'secondary';
+  const formatScore = (score: number) => {
+    if (score >= 1000) {
+      return `${(score / 1000).toFixed(1)}k`;
     }
+    return score.toString();
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'discovered': return 'New';
-      case 'approved': return 'Approved';
-      case 'rejected': return 'Rejected';
-      case 'script_generated': return 'Script Ready';
-      default: return status;
+  const formatDate = (post: RedditPost) => {
+    const timestamp = post.createdUtc;
+    if (!timestamp || isNaN(timestamp) || timestamp <= 0) {
+      return 'Unknown date';
     }
-  };
 
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(timestamp * 1000);
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+
+    // Return a more user-friendly relative date
     const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    const diffInWeeks = Math.floor(diffInDays / 7);
-    return `${diffInWeeks}w ago`;
+    const diffTime = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else if (diffMinutes > 0) {
+      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+    } else {
+      return 'Just now';
+    }
   };
 
-  const truncateContent = (content: string, limit: number = 150) => {
-    if (content.length <= limit) return content;
-    return content.substring(0, limit) + '...';
-  };
+  const [showFullContent, setShowFullContent] = useState(false);
 
-  const handleGenerateScript = async () => {
-    setIsLoading(true);
-    try {
-      await onGenerateScript(post.id);
-    } finally {
-      setIsLoading(false);
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'script_generated':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
-    <div className={`modern-card p-4 ${isSelected ? 'selected' : ''}`}>
-      
-      {/* Header Section */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-4">
+    <Card
+      className={`modern-card p-4 transition-all duration-200 ${
+        isSelected ? 'ring-2 ring-purple-500' : ''
+      }`}
+    >
+      <div className="flex items-start space-x-3">
+        {onSelect && (
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={(e) => onSelect(post.id, e.target.checked)}
-            className="w-6 h-6 text-blue-600 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            onChange={() => onSelect(post.id)}
+            className="mt-1 w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
           />
-          
-          <div className="flex items-center space-x-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full px-5 py-3 shadow-lg">
-            <span className="text-sm font-bold text-blue-900">Quality</span>
-            <Badge 
-              variant={post.quality_score >= 80 ? 'success' : post.quality_score >= 60 ? 'info' : 'secondary'}
-              className="text-sm font-bold px-3 py-1 shadow-md"
+        )}
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 line-clamp-2 leading-tight">
+              {post.title}
+            </h3>
+            {post.status && (
+              <Badge className={`ml-2 ${getStatusColor(post.status)}`}>
+                {post.status.replace('_', ' ')}
+              </Badge>
+            )}
+          </div>
+
+          {post.selftext && (
+            <div className="text-base text-gray-600 mb-3">
+              <p className={showFullContent ? '' : 'line-clamp-3'}>
+                {post.selftext}
+              </p>
+              {post.selftext.length > 200 && (
+                <button
+                  onClick={() => setShowFullContent(!showFullContent)}
+                  className="text-purple-600 hover:text-purple-800 text-sm mt-1 font-medium"
+                >
+                  {showFullContent ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
+            <span className="font-medium">r/{post.subreddit}</span>
+            <span>•</span>
+            <span>u/{post.author}</span>
+            <span>•</span>
+            <span>{formatDate(post)}</span>
+          </div>
+
+          <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center space-x-1">
+              <span className="w-5 h-5 text-orange-500">⬆</span>
+              <span className="text-base font-medium">
+                {formatScore(post.score)}
+              </span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <span className="w-5 h-5 text-blue-500">💬</span>
+              <span className="text-base">{post.numComments || 0}</span>
+            </div>
+            {post.upvoteRatio && (
+              <div className="flex items-center space-x-1">
+                <span className="text-base text-gray-600">
+                  {Math.round(post.upvoteRatio * 100)}% upvoted
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {onApprove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                onClick={() => onApprove(post.id)}
+              >
+                ✓ Approve
+              </Button>
+            )}
+            {onReject && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                onClick={() => onReject(post.id)}
+              >
+                ✗ Reject
+              </Button>
+            )}
+            {onGenerateScript && (
+              <Button
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => onGenerateScript(post.id)}
+              >
+                🎬 Generate Script
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const redditUrl = post.permalink
+                  ? `https://www.reddit.com${post.permalink}`
+                  : (post as any).url ||
+                    `https://www.reddit.com/r/${post.subreddit}/comments/${post.id}`;
+                window.open(redditUrl, '_blank');
+              }}
             >
-              {post.quality_score}
-            </Badge>
+              View on Reddit
+            </Button>
           </div>
         </div>
-        
-        <div className="flex flex-col items-end space-y-2">
-          <Badge 
-            variant={getStatusBadgeVariant(post.status)}
-            className="text-sm font-bold px-3 py-1"
-          >
-            {getStatusText(post.status)}
-          </Badge>
-          <span className="text-sm text-gray-500 font-medium">
-            {formatRelativeTime(post.created_at)}
-          </span>
-        </div>
       </div>
-
-      {/* Title */}
-      <div className="mb-3">
-        <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
-          <a 
-            href={post.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            {post.title}
-          </a>
-        </h3>
-        <p className="text-gray-600 font-medium">
-          u/{post.author} • r/{post.subreddit}
-        </p>
-      </div>
-
-      {/* Content */}
-      <div className="mb-4">
-        <p className="text-gray-700 text-base leading-relaxed">
-          {isExpanded ? post.content : truncateContent(post.content)}
-        </p>
-        {post.content.length > 150 && (
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-blue-600 hover:text-blue-800 font-semibold mt-2 transition-colors"
-          >
-            {isExpanded ? 'Read less' : 'Read more'}
-          </button>
-        )}
-      </div>
-
-      {/* Engagement Stats */}
-      <div className="flex items-center space-x-4 mb-4 p-3 bg-gray-50 rounded-lg">
-        <div className="flex items-center space-x-2">
-          <span className="text-2xl">👍</span>
-          <span className="font-bold text-gray-900 text-sm">{post.upvotes?.toLocaleString()}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-2xl">💬</span>
-          <span className="font-bold text-gray-900 text-sm">{post.comments?.toLocaleString()}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-2xl">⭐</span>
-          <span className="font-bold text-gray-900 text-sm">{post.score?.toLocaleString()}</span>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-        <div className="flex space-x-4">
-          {post.status === 'discovered' && (
-            <>
-              <Button
-                onClick={() => onApprove(post.id)}
-                variant="success"
-                className="px-6 py-3 text-base font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                ✅ Approve
-              </Button>
-              <Button
-                onClick={() => onReject(post.id)}
-                variant="destructive"
-                className="px-6 py-3 text-base font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                ❌ Reject
-              </Button>
-            </>
-          )}
-          
-          {post.status === 'approved' && (
-            <Button
-              onClick={handleGenerateScript}
-              disabled={isLoading}
-              variant="info"
-              className="px-5 py-2 text-base font-semibold rounded-lg"
-            >
-              {isLoading ? '⏳ Generating...' : '📝 Generate Script'}
-            </Button>
-          )}
-          
-          {post.status === 'script_generated' && (
-            <Button
-              variant="success"
-              className="px-5 py-2 text-base font-semibold rounded-lg"
-            >
-              📄 View Script
-            </Button>
-          )}
-        </div>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          className="p-3 hover:bg-gray-100 rounded-xl"
-        >
-          <span className="text-2xl">⋮</span>
-        </Button>
-      </div>
-    </div>
+    </Card>
   );
 };
