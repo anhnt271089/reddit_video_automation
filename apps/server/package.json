@@ -20,11 +20,13 @@
   "dependencies": {
     "@fastify/cors": "^8.5.0",
     "@fastify/websocket": "^8.3.1",
+    "@types/uuid": "^10.0.0",
     "@video-automation/shared-types": "workspace:*",
     "better-sqlite3": "^9.6.0",
     "dotenv": "^16.6.1",
     "fastify": "^4.29.1",
     "fastify-plugin": "^5.0.1",
+    "uuid": "^11.1.0",
     "winston": "^3.17.0"
   },
   "devDependencies": {
