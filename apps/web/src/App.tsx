@@ -12,7 +12,7 @@ function App() {
       <MainLayout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/content" element={<ContentReview />} />
+          <Route path="/content-review" element={<ContentReview />} />
           <Route path="/scripts" element={<ScriptWorkflow />} />
           <Route path="/scripts/:scriptId" element={<ScriptWorkflow />} />
           <Route path="/assets/:scriptId" element={<AssetManagement />} />

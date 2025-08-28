@@ -7,6 +7,7 @@
 export type {
   ProcessingStatus,
   RedditPost,
+  ContentDiscoveryPost,
   SceneData,
   ThumbnailConcept,
   VideoScript,

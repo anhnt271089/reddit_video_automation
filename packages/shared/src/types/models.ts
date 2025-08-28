@@ -16,18 +16,37 @@ export type ProcessingStatus =
 
 export interface RedditPost {
   id: string;
-  reddit_id: string;
+  reddit_id?: string;
   title: string;
   content: string;
   url: string;
   author: string;
   upvotes: number;
   comments: number;
-  created_date: Date;
+  created_date?: Date;
+  created_at: string; // Frontend uses string format
   score: number;
   status: ProcessingStatus;
-  discovered_at: Date;
-  updated_at: Date;
+  discovered_at?: Date;
+  updated_at?: Date;
+  subreddit: string;
+  quality_score?: number;
+}
+
+// Frontend-specific type alias for backwards compatibility
+export interface ContentDiscoveryPost {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  subreddit: string;
+  score: number;
+  upvotes: number;
+  comments: number;
+  created_at: string;
+  url: string;
+  status: 'discovered' | 'approved' | 'rejected' | 'script_generated';
+  quality_score?: number;
 }
 
 export interface SceneData {

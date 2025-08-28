@@ -21,7 +21,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
   onBatchApprove,
   onBatchReject,
   onBatchGenerateScripts,
-  isLoading
+  isLoading,
 }) => {
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState<{
@@ -30,7 +30,8 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
   } | null>(null);
 
   const selectedCount = selectedPosts.length;
-  const allSelected = selectedCount === allPostIds.length && allPostIds.length > 0;
+  const allSelected =
+    selectedCount === allPostIds.length && allPostIds.length > 0;
   const someSelected = selectedCount > 0;
 
   const handleBatchAction = async (
@@ -42,7 +43,6 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
       await actionFn(selectedPosts);
       onClearSelection();
     } catch (error) {
-      console.error(`Batch ${action} failed:`, error);
       // TODO: Show error toast
     } finally {
       setActionInProgress(null);
@@ -66,7 +66,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             <input
               type="checkbox"
               checked={allSelected}
-              onChange={(e) => onSelectAll(e.target.checked)}
+              onChange={e => onSelectAll(e.target.checked)}
               className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
               disabled={allPostIds.length === 0}
             />
@@ -111,9 +111,13 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
               variant="destructive"
               size="sm"
               onClick={() => {
-                if (action === 'approve') handleBatchAction('approve', onBatchApprove);
-                else if (action === 'reject') handleBatchAction('reject', onBatchReject);
-                else if (action === 'generate scripts') handleBatchAction('generate', onBatchGenerateScripts);
+                if (action === 'approve') {
+                  handleBatchAction('approve', onBatchApprove);
+                } else if (action === 'reject') {
+                  handleBatchAction('reject', onBatchReject);
+                } else if (action === 'generate scripts') {
+                  handleBatchAction('generate', onBatchGenerateScripts);
+                }
               }}
               disabled={isLoading}
             >
@@ -132,10 +136,12 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
           <input
             type="checkbox"
             checked={allSelected}
-            ref={(input) => {
-              if (input) input.indeterminate = someSelected && !allSelected;
+            ref={input => {
+              if (input) {
+                input.indeterminate = someSelected && !allSelected;
+              }
             }}
-            onChange={(e) => onSelectAll(e.target.checked)}
+            onChange={e => onSelectAll(e.target.checked)}
             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
           />
           <div className="flex items-center space-x-2">
@@ -159,18 +165,22 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             disabled={isLoading || actionInProgress === 'approve'}
             className="bg-green-600 hover:bg-green-700"
           >
-            {actionInProgress === 'approve' ? 'Approving...' : `Approve ${selectedCount}`}
+            {actionInProgress === 'approve'
+              ? 'Approving...'
+              : `Approve ${selectedCount}`}
           </Button>
-          
+
           <Button
             variant="destructive"
             size="sm"
             onClick={() => confirmAction('reject', selectedCount)}
             disabled={isLoading || actionInProgress === 'reject'}
           >
-            {actionInProgress === 'reject' ? 'Rejecting...' : `Reject ${selectedCount}`}
+            {actionInProgress === 'reject'
+              ? 'Rejecting...'
+              : `Reject ${selectedCount}`}
           </Button>
-          
+
           <Button
             variant="default"
             size="sm"
@@ -178,15 +188,13 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             disabled={isLoading || actionInProgress === 'generate'}
             className="bg-purple-600 hover:bg-purple-700"
           >
-            {actionInProgress === 'generate' ? 'Generating...' : `Generate Scripts`}
+            {actionInProgress === 'generate'
+              ? 'Generating...'
+              : `Generate Scripts`}
           </Button>
 
           <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="px-2"
-            >
+            <Button variant="outline" size="sm" className="px-2">
               ⋯
             </Button>
             {/* TODO: Add dropdown with more actions:
@@ -209,7 +217,10 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             </span>
           </div>
           <div className="mt-2 w-full bg-blue-200 rounded-full h-2">
-            <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            <div
+              className="bg-blue-600 h-2 rounded-full animate-pulse"
+              style={{ width: '60%' }}
+            ></div>
           </div>
         </div>
       )}
