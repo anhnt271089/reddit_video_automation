@@ -16,8 +16,7 @@ export async function redditAuthRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/auth/reddit', async (request, reply) => {
     try {
-      const scopes = ['read']; // Can be expanded later
-      const { url, state } = authService.generateAuthUrl(scopes);
+      const { url, state } = authService.generateAuthUrl(); // Use default scopes: identity, read
 
       // Store state in session/memory for validation
       // For now, we'll trust the callback validation

@@ -65,7 +65,10 @@ export class RedditAuthService {
   /**
    * Generate OAuth2 authorization URL with state parameter
    */
-  generateAuthUrl(scopes: string[] = ['read']): { url: string; state: string } {
+  generateAuthUrl(scopes: string[] = ['identity', 'read']): {
+    url: string;
+    state: string;
+  } {
     const state = crypto.randomBytes(32).toString('hex');
     const params = new URLSearchParams({
       client_id: this.clientId,
@@ -213,6 +216,11 @@ export class RedditAuthService {
     try {
       const accessToken = await this.getValidAccessToken();
 
+      this.logger.info('Attempting token validation', {
+        userAgent: this.userAgent,
+        tokenLength: accessToken.length,
+      });
+
       const response = await fetch('https://oauth.reddit.com/api/v1/me', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -228,7 +236,12 @@ export class RedditAuthService {
         return true;
       }
 
-      this.logger.warn('Token validation failed', { status: response.status });
+      const errorText = await response.text();
+      this.logger.warn('Token validation failed', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      });
       return false;
     } catch (error) {
       this.logger.error('Token validation error', { error });
