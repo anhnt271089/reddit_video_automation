@@ -317,7 +317,7 @@ export const useAppStore = create<AppState>()(
       // Handle WebSocket messages and update relevant state
       handleWebSocketMessage: message => {
         const { event, postId, scriptId, videoId, status, progress, data } =
-          message.data;
+          message.data || message;
 
         switch (event) {
           case 'post_status_update':
