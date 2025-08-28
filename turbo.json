@@ -1,6 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "pipeline": {
+  "globalDependencies": [
+    ".env",
+    ".env.local",
+    ".eslintrc.cjs",
+    ".prettierrc",
+    "turbo.json",
+    "tsconfig.json"
+  ],
+  "globalEnv": ["NODE_ENV"],
+  "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**", ".next/**"],
@@ -42,14 +51,5 @@
       "cache": false,
       "outputs": []
     }
-  },
-  "globalDependencies": [
-    ".env",
-    ".env.local",
-    ".eslintrc.cjs",
-    ".prettierrc",
-    "turbo.json",
-    "tsconfig.json"
-  ],
-  "globalEnv": ["NODE_ENV"]
+  }
 }
