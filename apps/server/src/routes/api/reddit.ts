@@ -33,26 +33,75 @@ export async function redditRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Get some sample data
-        const topPosts = await apiClient.getTopPosts('getmotivated', 'week', {
-          limit: 5,
+        // List of text-rich subreddits for content discovery
+        const textRichSubreddits = [
+          'selfhelp',
+          'selfimprovement',
+          'decidingtobebetter',
+          'getdisciplined',
+          'productivity',
+          'zenhabits',
+        ];
+
+        // Randomly select a subreddit for variety
+        const selectedSubreddit =
+          textRichSubreddits[
+            Math.floor(Math.random() * textRichSubreddits.length)
+          ];
+
+        logger.info('Scraping from selected subreddit', {
+          subreddit: selectedSubreddit,
+          availableOptions: textRichSubreddits,
         });
 
+        // Get posts from selected subreddit
+        const topPosts = await apiClient.getTopPosts(
+          selectedSubreddit,
+          'week',
+          {
+            limit: 10, // Increased limit to get more options
+          }
+        );
+
+        // Filter for posts with text content (selftext)
+        const textPosts = topPosts.data.children.filter(
+          child =>
+            child.data.selftext &&
+            child.data.selftext.trim().length > 100 && // At least 100 characters
+            !child.data.selftext.includes('[removed]') && // Not removed content
+            !child.data.selftext.includes('[deleted]') // Not deleted content
+        );
+
         logger.info('Reddit scraping completed successfully', {
-          postsFound: topPosts.data.children.length,
+          subreddit: selectedSubreddit,
+          totalPostsFound: topPosts.data.children.length,
+          textPostsFound: textPosts.length,
+          textPostIds: textPosts.map(p => p.data.id),
         });
 
         return reply.send({
           success: true,
           message: 'Reddit scraping completed',
           data: {
-            postsScraped: topPosts.data.children.length,
-            posts: topPosts.data.children.map(child => ({
+            subreddit: selectedSubreddit,
+            postsScraped: textPosts.length,
+            posts: textPosts.map(child => ({
               id: child.data.id,
               title: child.data.title,
-              score: child.data.score,
+              selftext: child.data.selftext,
               author: child.data.author,
+              subreddit: child.data.subreddit,
+              score: child.data.score,
+              upvote_ratio: child.data.upvote_ratio,
+              num_comments: child.data.num_comments,
               created_utc: child.data.created_utc,
+              permalink: child.data.permalink,
+              url: child.data.url,
+              domain: child.data.domain,
+              is_video: child.data.is_video,
+              is_self: child.data.is_self,
+              thumbnail: child.data.thumbnail,
+              post_hint: child.data.post_hint,
             })),
           },
         });
