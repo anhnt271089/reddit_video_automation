@@ -5,7 +5,7 @@ import {
   GeneratedScript,
   ScriptStyle,
   ClaudeCodeResponse,
-  ValidationResult
+  ValidationResult,
 } from './types';
 
 export class ClaudeCodeScriptGenerator {
@@ -15,15 +15,20 @@ export class ClaudeCodeScriptGenerator {
     this.contentProcessor = new ContentProcessor();
   }
 
-  async generateScript(request: ScriptGenerationRequest): Promise<GeneratedScript> {
+  async generateScript(
+    request: ScriptGenerationRequest
+  ): Promise<GeneratedScript> {
     try {
       // Process and validate the Reddit post content
-      const processedContent = this.contentProcessor.preprocessPost(request.redditPost);
-      
+      const processedContent = this.contentProcessor.preprocessPost(
+        request.redditPost
+      );
+
       // Determine optimal parameters
       const style = request.style || 'motivational';
       const targetDuration = request.targetDuration || 60;
-      const sceneCount = request.sceneCount || this.calculateOptimalScenes(targetDuration);
+      const sceneCount =
+        request.sceneCount || this.calculateOptimalScenes(targetDuration);
 
       // Generate the script using Claude Code
       const claudeResponse = await this.invokeClaudeCode(
@@ -38,19 +43,23 @@ export class ClaudeCodeScriptGenerator {
       const script = this.structureResponse(claudeResponse, {
         style,
         targetDuration,
-        sceneCount
+        sceneCount,
       });
 
       // Validate the generated script
       const validation = this.contentProcessor.validateScript(script);
       if (!validation.isValid) {
-        throw new Error(`Script validation failed: ${validation.errors.join(', ')}`);
+        throw new Error(
+          `Script validation failed: ${validation.errors.join(', ')}`
+        );
       }
 
       return script;
     } catch (error) {
       console.error('Script generation failed:', error);
-      throw new Error(`Failed to generate script: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to generate script: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -74,24 +83,24 @@ export class ClaudeCodeScriptGenerator {
     // Here's where Claude Code would be invoked
     // This is a placeholder that will be replaced with actual Claude Code integration
     const claudePrompt = `${systemPrompt}\n\n${userPrompt}`;
-    
+
     // TODO: Replace this with actual Claude Code invocation
     // For now, we'll create a structured response format that Claude Code can fill
     const response = await this.processWithClaudeCode(claudePrompt);
-    
+
     return this.parseClaudeResponse(response);
   }
 
   private async processWithClaudeCode(prompt: string): Promise<string> {
     // This method will be called by Claude Code during execution
     // The actual implementation will be handled by Claude Code's processing
-    
+
     // Placeholder for Claude Code integration point
     // When this service is called, Claude Code will:
     // 1. Receive the structured prompt
     // 2. Process it using the Claude model
     // 3. Return the JSON response
-    
+
     return `This will be processed by Claude Code with the following prompt:\n\n${prompt}`;
   }
 
@@ -104,9 +113,13 @@ export class ClaudeCodeScriptGenerator {
       }
 
       const parsedResponse = JSON.parse(jsonMatch[0]);
-      
+
       // Validate required structure
-      if (!parsedResponse.script || !parsedResponse.scenes || !parsedResponse.metadata) {
+      if (
+        !parsedResponse.script ||
+        !parsedResponse.scenes ||
+        !parsedResponse.metadata
+      ) {
         throw new Error('Invalid response structure from Claude');
       }
 
@@ -125,23 +138,34 @@ export class ClaudeCodeScriptGenerator {
       scriptContent: claudeResponse.script,
       sceneBreakdown: claudeResponse.scenes.map(scene => ({
         ...scene,
-        emotion: scene.emotion || 'motivational'
+        emotion: scene.emotion || 'motivational',
       })),
-      durationEstimate: claudeResponse.scenes.reduce((total, scene) => total + scene.duration, 0),
+      durationEstimate: claudeResponse.scenes.reduce(
+        (total, scene) => total + scene.duration,
+        0
+      ),
       titles: claudeResponse.metadata.titles,
       description: claudeResponse.metadata.description,
       thumbnailConcepts: claudeResponse.metadata.thumbnailConcepts || [],
       keywords: claudeResponse.metadata.tags || [],
-      generationParams: params
+      generationParams: params,
     };
   }
 
   private calculateOptimalScenes(duration: number): number {
     // Calculate optimal number of scenes based on duration
-    if (duration <= 30) return 3;
-    if (duration <= 60) return 4;
-    if (duration <= 90) return 5;
-    if (duration <= 120) return 6;
+    if (duration <= 30) {
+      return 3;
+    }
+    if (duration <= 60) {
+      return 4;
+    }
+    if (duration <= 90) {
+      return 5;
+    }
+    if (duration <= 120) {
+      return 6;
+    }
     return Math.ceil(duration / 20); // ~20 seconds per scene for longer videos
   }
 
@@ -152,9 +176,9 @@ export class ClaudeCodeScriptGenerator {
   ): Promise<GeneratedScript> {
     const updatedRequest = {
       ...originalRequest,
-      ...newParams
+      ...newParams,
     };
-    
+
     return this.generateScript(updatedRequest);
   }
 
@@ -164,19 +188,24 @@ export class ClaudeCodeScriptGenerator {
     count: number = 3
   ): Promise<GeneratedScript[]> {
     const variations: GeneratedScript[] = [];
-    
-    const styles: ScriptStyle[] = ['motivational', 'educational', 'entertainment', 'storytelling'];
-    
+
+    const styles: ScriptStyle[] = [
+      'motivational',
+      'educational',
+      'entertainment',
+      'storytelling',
+    ];
+
     for (let i = 0; i < count; i++) {
       const variationRequest = {
         ...request,
-        style: styles[i % styles.length]
+        style: styles[i % styles.length],
       };
-      
+
       const script = await this.generateScript(variationRequest);
       variations.push(script);
     }
-    
+
     return variations;
   }
 }

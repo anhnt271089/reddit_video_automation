@@ -32,7 +32,7 @@ export const PostFilters: React.FC<PostFiltersProps> = ({
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const updateFilter = (key: keyof PostFilters, value: any) => {
+  const updateFilter = (key: keyof PostFiltersType, value: any) => {
     onFiltersChange({
       ...filters,
       [key]: value,
@@ -285,10 +285,10 @@ export const PostFilters: React.FC<PostFiltersProps> = ({
               <Badge
                 variant="secondary"
                 className="cursor-pointer"
-                onClick={
-                  (() => updateDateRange('start', ''),
-                  updateDateRange('end', ''))
-                }
+                onClick={() => {
+                  updateDateRange('start', '');
+                  updateDateRange('end', '');
+                }}
               >
                 Date Range ✕
               </Badge>

@@ -43,16 +43,20 @@ export class RedditClient {
       // });
       throw new Error('Reddit client not implemented yet');
 
+      // TODO: Remove when Reddit client is implemented
       // Test the connection
-      await this.reddit.getMe();
-      this.isInitialized = true;
+      // await this.reddit.getMe();
+      // this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize Reddit client:', error);
       throw error;
     }
   }
 
-  async getHotPosts(subreddit: string, limit: number = 25): Promise<RedditPostData[]> {
+  async getHotPosts(
+    subreddit: string,
+    limit: number = 25
+  ): Promise<RedditPostData[]> {
     if (!this.isInitialized || !this.reddit) {
       throw new Error('Reddit client not initialized');
     }
@@ -64,17 +68,17 @@ export class RedditClient {
         title: post.title,
         selftext: post.selftext || '',
         author: {
-          name: post.author.name
+          name: post.author.name,
         },
         subreddit: {
-          display_name: post.subreddit.display_name
+          display_name: post.subreddit.display_name,
         },
         score: post.score,
         ups: post.ups,
         num_comments: post.num_comments,
         created_utc: post.created_utc,
         url: post.url,
-        permalink: post.permalink
+        permalink: post.permalink,
       }));
     } catch (error) {
       console.error(`Failed to fetch posts from r/${subreddit}:`, error);
@@ -82,9 +86,12 @@ export class RedditClient {
     }
   }
 
-  async getMultipleSubreddits(subreddits: string[], limit: number = 10): Promise<RedditPostData[]> {
+  async getMultipleSubreddits(
+    subreddits: string[],
+    limit: number = 10
+  ): Promise<RedditPostData[]> {
     const allPosts: RedditPostData[] = [];
-    
+
     for (const subreddit of subreddits) {
       try {
         const posts = await this.getHotPosts(subreddit, limit);
@@ -95,9 +102,7 @@ export class RedditClient {
     }
 
     // Sort by score and created time
-    return allPosts
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 50); // Return top 50
+    return allPosts.sort((a, b) => b.score - a.score).slice(0, 50); // Return top 50
   }
 
   isHealthy(): boolean {
