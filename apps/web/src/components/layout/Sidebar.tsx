@@ -18,7 +18,7 @@ const navigation: NavigationItem[] = [
   },
   {
     name: 'Content Review',
-    href: '/content',
+    href: '/content-review',
     icon: '📝',
     description: 'Review Reddit posts',
   },
