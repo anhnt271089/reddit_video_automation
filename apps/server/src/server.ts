@@ -7,6 +7,7 @@ import { apiRoutes } from './routes/api/index.js';
 import { authRoutes } from './routes/auth/index.js';
 import { logger } from './utils/logger.js';
 import databasePlugin from './plugins/database.js';
+import { WebSocketService } from './services/websocket.js';
 import './types/fastify.js';
 
 // Create Fastify instance
@@ -32,6 +33,10 @@ async function buildServer() {
       },
     });
 
+    // Initialize and register WebSocket service
+    const wsService = new WebSocketService();
+    fastify.decorate('wsService', wsService);
+
     // Register routes
     await fastify.register(healthRoutes);
     await fastify.register(apiRoutes);
@@ -46,23 +51,27 @@ async function buildServer() {
           // Parse and handle message properly
           try {
             const parsedMessage = JSON.parse(message);
-            
+
             // Handle ping/pong
             if (parsedMessage.event === 'ping') {
               connection.socket.send(JSON.stringify({ event: 'pong' }));
             } else {
               // Echo other messages as JSON
-              connection.socket.send(JSON.stringify({
-                event: 'echo',
-                data: parsedMessage
-              }));
+              connection.socket.send(
+                JSON.stringify({
+                  event: 'echo',
+                  data: parsedMessage,
+                })
+              );
             }
           } catch (error) {
             // If not JSON, send as text echo
-            connection.socket.send(JSON.stringify({
-              event: 'echo',
-              data: { message: message.toString() }
-            }));
+            connection.socket.send(
+              JSON.stringify({
+                event: 'echo',
+                data: { message: message.toString() },
+              })
+            );
           }
         });
 

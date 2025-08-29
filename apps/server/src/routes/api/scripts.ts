@@ -47,7 +47,7 @@ const scriptsRoutes: FastifyPluginCallback = (
 ) => {
   // Get services from fastify decorators
   const db = fastify.db as DatabaseService;
-  const wsService = fastify.websocket as WebSocketService;
+  const wsService = fastify.wsService as WebSocketService;
 
   // Initialize queue and pipeline (these should be singletons)
   const queue = new GenerationQueue(db, wsService);
