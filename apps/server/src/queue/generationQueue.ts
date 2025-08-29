@@ -293,10 +293,18 @@ export class GenerationQueue extends EventEmitter {
       // Generate script
       let generatedScript = await this.scriptGenerator.generateScript({
         redditPost: {
+          id: post.id,
           title: post.title,
           content: post.content,
           author: post.author,
           subreddit: post.subreddit,
+          score: post.score || 0,
+          upvotes: post.upvotes || 0,
+          comments: post.comments || 0,
+          createdUtc: post.created_date
+            ? Math.floor(new Date(post.created_date).getTime() / 1000)
+            : 0,
+          url: post.url || '',
         },
         targetDuration: job.generation_params.targetDuration,
         style: job.generation_params.style,
@@ -345,10 +353,18 @@ export class GenerationQueue extends EventEmitter {
         generatedScript = await this.scriptGenerator.regenerateScript(
           {
             redditPost: {
+              id: post.id,
               title: post.title,
               content: post.content,
               author: post.author,
               subreddit: post.subreddit,
+              score: post.score || 0,
+              upvotes: post.upvotes || 0,
+              comments: post.comments || 0,
+              createdUtc: post.created_date
+                ? Math.floor(new Date(post.created_date).getTime() / 1000)
+                : 0,
+              url: post.url || '',
             },
             targetDuration: job.generation_params.targetDuration,
             style: job.generation_params.style,
