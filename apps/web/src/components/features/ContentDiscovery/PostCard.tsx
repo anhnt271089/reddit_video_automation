@@ -178,10 +178,23 @@ export const PostCard: React.FC<PostCardProps> = ({
               size="sm"
               variant="outline"
               onClick={() => {
-                const redditUrl = post.permalink
-                  ? `https://www.reddit.com${post.permalink}`
-                  : (post as any).url ||
-                    `https://www.reddit.com/r/${post.subreddit}/comments/${post.id}`;
+                // Construct proper Reddit URL
+                let redditUrl: string;
+
+                if (post.permalink) {
+                  // Use permalink if available (most reliable)
+                  redditUrl = `https://www.reddit.com${post.permalink}`;
+                } else if (post.subreddit && post.id) {
+                  // Fallback: construct from subreddit and post ID
+                  redditUrl = `https://www.reddit.com/r/${post.subreddit}/comments/${post.id}`;
+                } else {
+                  // Last resort: try the url field or construct basic link
+                  redditUrl =
+                    (post as any).url ||
+                    `https://www.reddit.com/comments/${post.id}`;
+                }
+
+                console.log('Opening Reddit URL:', redditUrl);
                 window.open(redditUrl, '_blank');
               }}
             >

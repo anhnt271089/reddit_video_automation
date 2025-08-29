@@ -72,11 +72,53 @@ export async function redditRoutes(fastify: FastifyInstance) {
             !child.data.selftext.includes('[deleted]') // Not deleted content
         );
 
+        // Store posts in database
+        const storedPosts = [];
+        for (const child of textPosts) {
+          try {
+            // Check if post already exists
+            const existingPost = fastify.db.get(
+              'SELECT id FROM reddit_posts WHERE id = ?',
+              [child.data.id]
+            );
+
+            if (!existingPost) {
+              // Insert new post (mapping to existing schema)
+              fastify.db.run(
+                `INSERT INTO reddit_posts (
+                  id, reddit_id, title, content, url, author,
+                  upvotes, comments, created_date, score, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime(?, 'unixepoch'), ?, ?)`,
+                [
+                  child.data.id,
+                  child.data.id, // reddit_id same as id
+                  child.data.title,
+                  child.data.selftext || '', // content field
+                  child.data.url || child.data.permalink || '',
+                  child.data.author,
+                  child.data.score || 0, // upvotes field
+                  child.data.num_comments || 0, // comments field
+                  child.data.created_utc, // created_date field
+                  child.data.score || 0, // score field
+                  'idea', // Default status per schema
+                ]
+              );
+              storedPosts.push(child.data.id);
+            }
+          } catch (error) {
+            logger.error('Failed to store post', {
+              postId: child.data.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+
         logger.info('Reddit scraping completed successfully', {
           subreddit: selectedSubreddit,
           totalPostsFound: topPosts.data.children.length,
           textPostsFound: textPosts.length,
           textPostIds: textPosts.map(p => p.data.id),
+          storedPostsCount: storedPosts.length,
         });
 
         return reply.send({
@@ -85,6 +127,7 @@ export async function redditRoutes(fastify: FastifyInstance) {
           data: {
             subreddit: selectedSubreddit,
             postsScraped: textPosts.length,
+            storedPosts: storedPosts.length,
             posts: textPosts.map(child => ({
               id: child.data.id,
               title: child.data.title,
@@ -102,6 +145,7 @@ export async function redditRoutes(fastify: FastifyInstance) {
               is_self: child.data.is_self,
               thumbnail: child.data.thumbnail,
               post_hint: child.data.post_hint,
+              status: 'pending',
             })),
           },
         });
@@ -126,11 +170,17 @@ export async function redditRoutes(fastify: FastifyInstance) {
     '/posts',
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
-        // For now, return empty array - database storage will be implemented in Task 5
+        // Get posts from database
+        const posts = fastify.db.all(`
+          SELECT * FROM reddit_posts 
+          ORDER BY discovered_at DESC 
+          LIMIT 100
+        `);
+
         return reply.send({
           success: true,
-          posts: [],
-          message: 'Database storage coming in Task 5',
+          posts: posts || [],
+          count: posts?.length || 0,
         });
       } catch (error) {
         logger.error('Failed to retrieve Reddit posts', {
@@ -145,6 +195,199 @@ export async function redditRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  /**
+   * Update post status (Approve/Reject)
+   */
+  fastify.put<{
+    Params: { id: string };
+    Body: { status: string };
+  }>('/posts/:id/status', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { status } = request.body;
+
+      // Validate status and map frontend values to database values
+      let dbStatus = status;
+      if (status === 'approved') {
+        dbStatus = 'idea_selected';
+      } else if (status === 'rejected') {
+        dbStatus = 'script_rejected';
+      }
+
+      const validStatuses = [
+        'idea',
+        'idea_selected',
+        'script_generated',
+        'script_approved',
+        'script_rejected',
+        'assets_ready',
+        'rendering',
+        'completed',
+        'failed',
+      ];
+      if (!validStatuses.includes(dbStatus)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Invalid status. Valid statuses: ' + validStatuses.join(', '),
+        });
+      }
+
+      // Check if post exists
+      const existingPost = fastify.db.get(
+        'SELECT * FROM reddit_posts WHERE id = ?',
+        [id]
+      ) as any;
+
+      if (!existingPost) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Post not found',
+        });
+      }
+
+      // Update post status
+      const result = fastify.db.run(
+        `UPDATE reddit_posts 
+           SET status = ?, updated_at = datetime('now')
+           WHERE id = ?`,
+        [dbStatus, id]
+      );
+
+      if (result.changes === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Post not found or no changes made',
+        });
+      }
+
+      // Get updated post
+      const updatedPost = fastify.db.get(
+        'SELECT * FROM reddit_posts WHERE id = ?',
+        [id]
+      );
+
+      logger.info('Post status updated', {
+        postId: id,
+        newStatus: status,
+        oldStatus: existingPost.status,
+      });
+
+      return reply.send({
+        success: true,
+        message: `Post status updated to ${status}`,
+        post: updatedPost,
+      });
+    } catch (error) {
+      logger.error('Failed to update post status', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to update post status',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Batch approve posts
+   */
+  fastify.post<{
+    Body: { postIds: string[] };
+  }>('/posts/batch/approve', async (request, reply) => {
+    try {
+      const { postIds } = request.body;
+
+      if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
+        return reply.status(400).send({
+          success: false,
+          error: 'postIds array is required and cannot be empty',
+        });
+      }
+
+      // Update all posts to approved status (mapped to idea_selected)
+      const placeholders = postIds.map(() => '?').join(',');
+      const result = fastify.db.run(
+        `UPDATE reddit_posts 
+           SET status = 'idea_selected', updated_at = datetime('now')
+           WHERE id IN (${placeholders})`,
+        postIds
+      );
+
+      logger.info('Batch approve completed', {
+        postIds,
+        updatedCount: result.changes,
+      });
+
+      return reply.send({
+        success: true,
+        message: `${result.changes} posts approved`,
+        updatedCount: result.changes,
+        requestedCount: postIds.length,
+      });
+    } catch (error) {
+      logger.error('Failed to batch approve posts', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to batch approve posts',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Batch reject posts
+   */
+  fastify.post<{
+    Body: { postIds: string[] };
+  }>('/posts/batch/reject', async (request, reply) => {
+    try {
+      const { postIds } = request.body;
+
+      if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
+        return reply.status(400).send({
+          success: false,
+          error: 'postIds array is required and cannot be empty',
+        });
+      }
+
+      // Update all posts to rejected status (mapped to script_rejected)
+      const placeholders = postIds.map(() => '?').join(',');
+      const result = fastify.db.run(
+        `UPDATE reddit_posts 
+           SET status = 'script_rejected', updated_at = datetime('now')
+           WHERE id IN (${placeholders})`,
+        postIds
+      );
+
+      logger.info('Batch reject completed', {
+        postIds,
+        updatedCount: result.changes,
+      });
+
+      return reply.send({
+        success: true,
+        message: `${result.changes} posts rejected`,
+        updatedCount: result.changes,
+        requestedCount: postIds.length,
+      });
+    } catch (error) {
+      logger.error('Failed to batch reject posts', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to batch reject posts',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 
   /**
    * Get Reddit API health status
