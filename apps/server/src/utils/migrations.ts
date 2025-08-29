@@ -95,16 +95,10 @@ export class MigrationRunner {
     const filePath = join(this.migrationsPath, filename);
     const sql = readFileSync(filePath, 'utf8');
 
-    // Split by semicolon and execute each statement
-    const statements = sql
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0);
-
+    // For complex SQL with triggers, execute the entire file as one statement
+    // This avoids issues with semicolon splitting within triggers
     this.db.transaction(() => {
-      for (const statement of statements) {
-        this.db.getDatabase().exec(statement);
-      }
+      this.db.getDatabase().exec(sql);
     });
   }
 
