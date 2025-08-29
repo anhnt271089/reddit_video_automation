@@ -293,7 +293,7 @@ export const ContentDiscoveryDashboard: React.FC<
   const handleApprovePost = async (postId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/posts/${postId}/status`,
+        `http://localhost:3001/api/reddit/posts/${postId}/status`,
         {
           method: 'PUT',
           headers: {
@@ -318,7 +318,7 @@ export const ContentDiscoveryDashboard: React.FC<
   const handleRejectPost = async (postId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/posts/${postId}/status`,
+        `http://localhost:3001/api/reddit/posts/${postId}/status`,
         {
           method: 'PUT',
           headers: {
@@ -342,17 +342,20 @@ export const ContentDiscoveryDashboard: React.FC<
 
   const handleGenerateScript = async (postId: string) => {
     try {
-      const response = await fetch('/api/scripts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          postId,
-          targetDuration: 60,
-          style: 'motivational',
-        }),
-      });
+      const response = await fetch(
+        'http://localhost:3001/api/scripts/generate',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            postId,
+            targetDuration: 60,
+            style: 'motivational',
+          }),
+        }
+      );
 
       if (response.ok) {
         setPosts(prevPosts =>
@@ -372,13 +375,16 @@ export const ContentDiscoveryDashboard: React.FC<
   const handleBatchApprove = async (postIds: string[]) => {
     setBatchLoading(true);
     try {
-      const response = await fetch('/api/posts/batch/approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ postIds }),
-      });
+      const response = await fetch(
+        'http://localhost:3001/api/reddit/posts/batch/approve',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ postIds }),
+        }
+      );
 
       if (response.ok) {
         setPosts(prevPosts =>
