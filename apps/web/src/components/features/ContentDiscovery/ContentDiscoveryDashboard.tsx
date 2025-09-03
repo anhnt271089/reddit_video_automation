@@ -5,7 +5,10 @@ import { PostFilters } from './PostFilters';
 import { BatchActions } from './BatchActions';
 import type { RedditPost } from './types';
 import type { PostFilters as PostFiltersType } from './PostFilters';
-import { useWebSocket } from '../../../hooks/useSimpleWebSocket';
+import {
+  useWebSocketContext,
+  useWebSocketSubscription,
+} from '../../../contexts/WebSocketContext';
 import { PostStatusManager } from '@video-automation/shared-types';
 
 interface ContentDiscoveryDashboardProps {
@@ -55,11 +58,10 @@ export const ContentDiscoveryDashboard: React.FC<
     checking: false,
   });
 
-  // WebSocket for real-time updates
-  const { isConnected } = useWebSocket('ws://localhost:3001/ws', {
-    onMessage: handleWebSocketMessage,
-  });
+  // WebSocket for real-time updates - using shared context
+  const { isConnected } = useWebSocketContext();
 
+  // WebSocket message handler
   function handleWebSocketMessage(message: MessageEvent) {
     try {
       const data = JSON.parse(message.data);
@@ -132,6 +134,9 @@ export const ContentDiscoveryDashboard: React.FC<
       console.error('WebSocket message parsing error:', error);
     }
   }
+
+  // Subscribe to WebSocket messages for real-time updates
+  useWebSocketSubscription(handleWebSocketMessage);
 
   // Filtered and sorted posts
   const filteredPosts = useMemo(() => {

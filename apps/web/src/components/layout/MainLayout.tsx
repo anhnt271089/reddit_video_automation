@@ -1,15 +1,12 @@
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { useWebSocket } from '../../hooks/useWebSocket';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-  // Initialize WebSocket connection
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws';
-  useWebSocket(wsUrl);
+  // WebSocket connection is now managed by WebSocketProvider at app level
 
   return (
     <div className="flex h-screen bg-background">

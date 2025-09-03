@@ -1,3 +1,4 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { PromptTemplates } from './prompts';
 import { ContentProcessor } from './contentProcessor';
 import {
@@ -10,9 +11,20 @@ import {
 
 export class ClaudeCodeScriptGenerator {
   private contentProcessor: ContentProcessor;
+  private anthropic: Anthropic;
 
   constructor() {
     this.contentProcessor = new ContentProcessor();
+
+    // Initialize Anthropic client with API key from environment
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is required');
+    }
+
+    this.anthropic = new Anthropic({
+      apiKey: apiKey,
+    });
   }
 
   async generateScript(
@@ -80,39 +92,86 @@ export class ClaudeCodeScriptGenerator {
       style
     );
 
-    // Here's where Claude Code would be invoked
-    // This is a placeholder that will be replaced with actual Claude Code integration
-    const claudePrompt = `${systemPrompt}\n\n${userPrompt}`;
-
-    // TODO: Replace this with actual Claude Code invocation
-    // For now, we'll create a structured response format that Claude Code can fill
-    const response = await this.processWithClaudeCode(claudePrompt);
+    // Call Claude API with proper system and user message structure
+    const response = await this.processWithClaudeCode(systemPrompt, userPrompt);
 
     return this.parseClaudeResponse(response);
   }
 
-  private async processWithClaudeCode(prompt: string): Promise<string> {
-    // This method will be called by Claude Code during execution
-    // The actual implementation will be handled by Claude Code's processing
+  private async processWithClaudeCode(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<string> {
+    try {
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 4096,
+        temperature: 0.7,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      });
 
-    // Placeholder for Claude Code integration point
-    // When this service is called, Claude Code will:
-    // 1. Receive the structured prompt
-    // 2. Process it using the Claude model
-    // 3. Return the JSON response
+      // Extract text content from the response
+      const textContent = response.content
+        .filter(block => block.type === 'text')
+        .map(block => (block as { text: string }).text)
+        .join('\n');
 
-    return `This will be processed by Claude Code with the following prompt:\n\n${prompt}`;
+      return textContent;
+    } catch (error) {
+      console.error('Claude API error:', error);
+
+      // Handle specific API errors
+      if (error instanceof Error && error.message.includes('api_key')) {
+        throw new Error(
+          'Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.'
+        );
+      }
+
+      if (error instanceof Error && error.message.includes('rate_limit')) {
+        throw new Error(
+          'Claude API rate limit exceeded. Please try again later.'
+        );
+      }
+
+      if (error instanceof Error && error.message.includes('invalid_request')) {
+        throw new Error(
+          'Invalid request to Claude API. Please check the prompt format.'
+        );
+      }
+
+      throw new Error(
+        `Failed to process with Claude API: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   private parseClaudeResponse(response: string): ClaudeCodeResponse {
     try {
-      // Extract JSON from Claude's response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in Claude response');
+      // Try to extract JSON from Claude's response
+      // First, try to find JSON wrapped in code blocks
+      const codeBlockMatch = response.match(
+        /```(?:json)?\s*(\{[\s\S]*?\})\s*```/
+      );
+      let jsonStr = '';
+
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1];
+      } else {
+        // If no code block, try to find JSON in the response
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error('No JSON found in Claude response');
+        }
+        jsonStr = jsonMatch[0];
       }
 
-      const parsedResponse = JSON.parse(jsonMatch[0]);
+      const parsedResponse = JSON.parse(jsonStr);
 
       // Validate required structure
       if (
@@ -120,13 +179,50 @@ export class ClaudeCodeScriptGenerator {
         !parsedResponse.scenes ||
         !parsedResponse.metadata
       ) {
-        throw new Error('Invalid response structure from Claude');
+        throw new Error(
+          'Invalid response structure from Claude. Missing required fields: script, scenes, or metadata'
+        );
+      }
+
+      // Validate scenes structure
+      if (
+        !Array.isArray(parsedResponse.scenes) ||
+        parsedResponse.scenes.length === 0
+      ) {
+        throw new Error('Invalid scenes structure. Expected non-empty array.');
+      }
+
+      // Validate each scene has required fields
+      parsedResponse.scenes.forEach((scene: any, index: number) => {
+        if (!scene.narration || !scene.duration || !scene.visualKeywords) {
+          throw new Error(
+            `Scene ${index + 1} is missing required fields: narration, duration, or visualKeywords`
+          );
+        }
+      });
+
+      // Validate metadata structure
+      if (
+        !parsedResponse.metadata.titles ||
+        !Array.isArray(parsedResponse.metadata.titles)
+      ) {
+        throw new Error('Invalid metadata structure. titles must be an array.');
       }
 
       return parsedResponse;
     } catch (error) {
       console.error('Failed to parse Claude response:', error);
-      throw new Error('Invalid JSON response from Claude Code');
+      console.error('Raw response:', response);
+
+      if (error instanceof SyntaxError) {
+        throw new Error(
+          'Invalid JSON format in Claude response. The response may be malformed.'
+        );
+      }
+
+      throw new Error(
+        `Failed to parse Claude response: ${error instanceof Error ? error.message : 'Unknown parsing error'}`
+      );
     }
   }
 

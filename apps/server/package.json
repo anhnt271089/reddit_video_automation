@@ -19,6 +19,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.15.0",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.61.0",
     "@fastify/cors": "^8.5.0",
     "@fastify/websocket": "^8.3.1",
     "@types/uuid": "^10.0.0",
