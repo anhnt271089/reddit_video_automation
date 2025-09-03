@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PostCard } from './PostCard';
 import { PostFilters } from './PostFilters';
 import { BatchActions } from './BatchActions';
 import type { RedditPost } from './types';
 import type { PostFilters as PostFiltersType } from './PostFilters';
 import { useWebSocket } from '../../../hooks/useSimpleWebSocket';
+import { PostStatusManager } from '@video-automation/shared-types';
 
 interface ContentDiscoveryDashboardProps {
   initialPosts?: RedditPost[];
@@ -13,6 +15,8 @@ interface ContentDiscoveryDashboardProps {
 export const ContentDiscoveryDashboard: React.FC<
   ContentDiscoveryDashboardProps
 > = ({ initialPosts = [] }) => {
+  const navigate = useNavigate();
+
   // State management
   const [posts, setPosts] = useState<RedditPost[]>(initialPosts);
   const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
@@ -52,11 +56,11 @@ export const ContentDiscoveryDashboard: React.FC<
   });
 
   // WebSocket for real-time updates
-  const { isConnected, lastMessage } = useWebSocket('ws://localhost:3001/ws', {
+  const { isConnected } = useWebSocket('ws://localhost:3001/ws', {
     onMessage: handleWebSocketMessage,
   });
 
-  function handleWebSocketMessage(message: any) {
+  function handleWebSocketMessage(message: MessageEvent) {
     try {
       const data = JSON.parse(message.data);
 
@@ -69,7 +73,23 @@ export const ContentDiscoveryDashboard: React.FC<
           setPosts(prevPosts =>
             prevPosts.map(post =>
               post.id === data.postId
-                ? { ...post, status: data.newStatus }
+                ? {
+                    ...post,
+                    status: PostStatusManager.normalizeStatus(
+                      data.status || data.newStatus
+                    ),
+                    ...(data.metadata || {}),
+                  }
+                : post
+            )
+          );
+          break;
+
+        case 'script_generating':
+          setPosts(prevPosts =>
+            prevPosts.map(post =>
+              post.id === data.postId
+                ? { ...post, status: 'script_generating' as const }
                 : post
             )
           );
@@ -79,7 +99,25 @@ export const ContentDiscoveryDashboard: React.FC<
           setPosts(prevPosts =>
             prevPosts.map(post =>
               post.id === data.postId
-                ? { ...post, status: 'script_generated' }
+                ? {
+                    ...post,
+                    status: 'script_generated' as const,
+                    scriptId: data.scriptId,
+                  }
+                : post
+            )
+          );
+          break;
+
+        case 'script_generation_failed':
+          setPosts(prevPosts =>
+            prevPosts.map(post =>
+              post.id === data.postId
+                ? {
+                    ...post,
+                    status: 'script_generation_failed' as const,
+                    error: data.error,
+                  }
                 : post
             )
           );
@@ -197,7 +235,7 @@ export const ContentDiscoveryDashboard: React.FC<
         if (scrapeData.success && scrapeData.data?.posts) {
           // Transform Reddit API data to our post format
           const redditPosts: RedditPost[] = scrapeData.data.posts.map(
-            (redditPost: any, index: number) => ({
+            (redditPost: Record<string, unknown>) => ({
               id: redditPost.id,
               title: redditPost.title,
               selftext: redditPost.selftext || redditPost.text || '',
@@ -254,7 +292,7 @@ export const ContentDiscoveryDashboard: React.FC<
         lastChecked: new Date(),
         usingMockData: true,
       });
-    } catch (error) {
+    } catch {
       // Use mock data for development
       setPosts(generateMockPosts());
       setRedditApiStatus({
@@ -299,14 +337,16 @@ export const ContentDiscoveryDashboard: React.FC<
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ status: 'approved' }),
+          body: JSON.stringify({ status: 'idea_selected' }),
         }
       );
 
       if (response.ok) {
         setPosts(prevPosts =>
           prevPosts.map(post =>
-            post.id === postId ? { ...post, status: 'approved' as const } : post
+            post.id === postId
+              ? { ...post, status: 'idea_selected' as const }
+              : post
           )
         );
       }
@@ -342,6 +382,15 @@ export const ContentDiscoveryDashboard: React.FC<
 
   const handleGenerateScript = async (postId: string) => {
     try {
+      // Set status to generating immediately
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, status: 'script_generating' as const }
+            : post
+        )
+      );
+
       const response = await fetch(
         'http://localhost:3001/api/scripts/generate',
         {
@@ -365,10 +414,32 @@ export const ContentDiscoveryDashboard: React.FC<
               : post
           )
         );
+      } else {
+        // Handle failure
+        setPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.id === postId
+              ? { ...post, status: 'script_generation_failed' as const }
+              : post
+          )
+        );
       }
     } catch (error) {
       console.error('Script generation error:', error);
+      // Set failure status on error
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, status: 'script_generation_failed' as const }
+            : post
+        )
+      );
     }
+  };
+
+  const handleViewScript = async (postId: string) => {
+    // Navigate to scripts page with the specific post ID
+    navigate(`/scripts/${postId}`);
   };
 
   // Batch action handlers
@@ -390,7 +461,7 @@ export const ContentDiscoveryDashboard: React.FC<
         setPosts(prevPosts =>
           prevPosts.map(post =>
             postIds.includes(post.id)
-              ? { ...post, status: 'approved' as const }
+              ? { ...post, status: 'idea_selected' as const }
               : post
           )
         );
@@ -498,7 +569,7 @@ export const ContentDiscoveryDashboard: React.FC<
         isHealthy: data.data?.authenticated && data.data?.valid,
         usingMockData: !(data.data?.authenticated && data.data?.valid),
       }));
-    } catch (error) {
+    } catch {
       setRedditAuthStatus({ authenticated: false, checking: false });
     }
   }, []);
@@ -860,6 +931,7 @@ export const ContentDiscoveryDashboard: React.FC<
                     onApprove={handleApprovePost}
                     onReject={handleRejectPost}
                     onGenerateScript={handleGenerateScript}
+                    onViewScript={handleViewScript}
                     isSelected={selectedPosts.includes(post.id)}
                     onSelect={handleSelectPost}
                   />

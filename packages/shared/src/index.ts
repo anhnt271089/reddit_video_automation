@@ -23,6 +23,12 @@ export type {
   GenerationQueueJob,
 } from './types/models.js';
 
+// Status Management Service
+export {
+  PostStatusManager,
+  type UnifiedPostStatus,
+} from './services/PostStatusManager.js';
+
 // API interfaces
 export type {
   ApiResponse,

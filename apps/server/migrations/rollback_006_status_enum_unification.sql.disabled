@@ -1,0 +1,132 @@
+-- ROLLBACK SCRIPT for 006_status_enum_unification.sql
+-- This script reverts the status unification migration
+-- ⚠️  WARNING: This will lose audit log data created after migration
+
+-- Remove the migration record first
+DELETE FROM migrations WHERE filename = '006_status_enum_unification.sql';
+
+-- Drop new tables and triggers
+DROP TRIGGER IF EXISTS log_status_changes;
+DROP TRIGGER IF EXISTS update_reddit_posts_timestamp;
+DROP VIEW IF EXISTS invalid_status_transitions;
+DROP TABLE IF EXISTS status_audit_log;
+
+-- Restore original reddit_posts table structure
+DROP TABLE IF EXISTS reddit_posts_rollback_temp;
+ALTER TABLE reddit_posts RENAME TO reddit_posts_rollback_temp;
+
+-- Recreate original reddit_posts table with old status constraint
+CREATE TABLE reddit_posts (
+    id TEXT PRIMARY KEY,
+    reddit_id TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    url TEXT NOT NULL,
+    author TEXT NOT NULL,
+    upvotes INTEGER NOT NULL DEFAULT 0,
+    comments INTEGER NOT NULL DEFAULT 0,
+    created_date TIMESTAMP NOT NULL,
+    score REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN (
+        'idea', 'idea_selected', 'script_generated', 'script_approved',
+        'script_rejected', 'assets_ready', 'rendering', 'completed', 'failed'
+    )) DEFAULT 'idea',
+    discovered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Migrate data back with reverse status mapping
+INSERT INTO reddit_posts (
+    id, reddit_id, title, content, url, author, upvotes, comments, 
+    created_date, score, status, discovered_at, updated_at
+)
+SELECT 
+    id, reddit_id, title, content, url, author, upvotes, comments,
+    created_date, score,
+    CASE 
+        -- Reverse map unified statuses back to legacy statuses
+        WHEN status = 'discovered' THEN 'idea'
+        WHEN status = 'rejected' THEN 'script_rejected'
+        
+        -- Map new statuses to closest legacy equivalent
+        WHEN status = 'script_generating' THEN 'idea_selected' -- In progress -> approved
+        WHEN status = 'script_generation_failed' THEN 'script_rejected' -- Failed -> rejected
+        
+        -- Keep existing legacy statuses as-is
+        WHEN status = 'idea_selected' THEN 'idea_selected'
+        WHEN status = 'script_generated' THEN 'script_generated'
+        WHEN status = 'script_approved' THEN 'script_approved'
+        WHEN status = 'assets_ready' THEN 'assets_ready'
+        WHEN status = 'rendering' THEN 'rendering'
+        WHEN status = 'completed' THEN 'completed'
+        WHEN status = 'failed' THEN 'failed'
+        
+        -- Default unknown statuses to idea
+        ELSE 'idea'
+    END as status,
+    discovered_at, 
+    updated_at
+FROM reddit_posts_rollback_temp;
+
+-- Drop temp table
+DROP TABLE reddit_posts_rollback_temp;
+
+-- Restore generation_queue table (if migration modified it)
+DROP TABLE IF EXISTS generation_queue_rollback_temp;
+ALTER TABLE generation_queue RENAME TO generation_queue_rollback_temp;
+
+CREATE TABLE generation_queue (
+    id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES reddit_posts(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'completed', 'failed')) DEFAULT 'pending',
+    priority INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    generation_params TEXT NOT NULL, -- JSON serialized ScriptGenerationRequest params
+    progress_percentage INTEGER NOT NULL DEFAULT 0 CHECK (progress_percentage BETWEEN 0 AND 100),
+    error_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    worker_id TEXT -- ID of processing worker for tracking
+);
+
+-- Restore generation_queue data (no changes needed)
+INSERT INTO generation_queue (
+    id, post_id, status, priority, attempts, max_attempts, generation_params,
+    progress_percentage, error_message, created_at, started_at, completed_at, worker_id
+)
+SELECT 
+    id, post_id, status, priority, attempts, max_attempts, generation_params,
+    progress_percentage, error_message, created_at, started_at, completed_at, worker_id
+FROM generation_queue_rollback_temp;
+
+DROP TABLE generation_queue_rollback_temp;
+
+-- Restore original indexes
+CREATE INDEX idx_reddit_posts_status ON reddit_posts(status);
+CREATE INDEX idx_reddit_posts_score ON reddit_posts(score DESC);
+CREATE INDEX idx_generation_queue_status ON generation_queue(status);
+CREATE INDEX idx_generation_queue_priority ON generation_queue(priority DESC, created_at ASC);
+CREATE INDEX idx_generation_queue_post_id ON generation_queue(post_id);
+
+-- Clean up any temporary tables
+DROP TABLE IF EXISTS status_backup_006;
+
+-- Rollback validation queries:
+-- 1. Verify old status values are restored:
+-- SELECT status, COUNT(*) FROM reddit_posts GROUP BY status;
+
+-- 2. Check for any invalid statuses:
+-- SELECT * FROM reddit_posts WHERE status NOT IN (
+--     'idea', 'idea_selected', 'script_generated', 'script_approved',
+--     'script_rejected', 'assets_ready', 'rendering', 'completed', 'failed'
+-- );
+
+-- Rollback Summary:
+-- ✅ Reverted reddit_posts status constraint to original values
+-- ✅ Mapped unified statuses back to legacy statuses
+-- ✅ Removed status_audit_log table and triggers
+-- ✅ Restored all original table structures and indexes
+-- ⚠️  Lost: Status audit history created after migration
+-- ⚠️  Lost: New status states (script_generating, script_generation_failed)

@@ -42,7 +42,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
     try {
       await actionFn(selectedPosts);
       onClearSelection();
-    } catch (error) {
+    } catch {
       // TODO: Show error toast
     } finally {
       setActionInProgress(null);

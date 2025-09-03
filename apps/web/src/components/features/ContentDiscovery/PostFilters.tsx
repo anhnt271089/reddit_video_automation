@@ -4,7 +4,19 @@ import { Badge } from '../../ui/Badge';
 
 export interface PostFiltersType {
   search: string;
-  status: 'all' | 'discovered' | 'approved' | 'rejected' | 'script_generated';
+  status:
+    | 'all'
+    | 'discovered'
+    | 'idea_selected'
+    | 'script_generating'
+    | 'script_generated'
+    | 'script_approved'
+    | 'script_generation_failed'
+    | 'rejected'
+    | 'assets_ready'
+    | 'rendering'
+    | 'completed'
+    | 'failed';
   sortBy: 'score' | 'date' | 'upvotes' | 'comments';
   sortOrder: 'asc' | 'desc';
   minScore: number;
@@ -32,7 +44,10 @@ export const PostFilters: React.FC<PostFiltersProps> = ({
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const updateFilter = (key: keyof PostFiltersType, value: any) => {
+  const updateFilter = (
+    key: keyof PostFiltersType,
+    value: PostFiltersType[keyof PostFiltersType]
+  ) => {
     onFiltersChange({
       ...filters,
       [key]: value,
@@ -50,15 +65,22 @@ export const PostFilters: React.FC<PostFiltersProps> = ({
   };
 
   const getStatusColor = (status: string) => {
+    // TODO: Replace with PostStatusManager.getStatusVariant() after Day 1
+    // For now, maintaining current UI while unified types are in place
     switch (status) {
       case 'discovered':
         return 'bg-blue-100 text-blue-800';
       case 'approved':
+      case 'idea_selected': // Handle unified status
         return 'bg-green-100 text-green-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
       case 'script_generated':
         return 'bg-purple-100 text-purple-800';
+      case 'script_generating':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'script_generation_failed':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }

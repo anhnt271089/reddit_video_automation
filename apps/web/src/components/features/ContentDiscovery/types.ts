@@ -1,3 +1,5 @@
+import type { ProcessingStatus } from '@video-automation/shared-types';
+
 export interface RedditPost {
   id: string;
   title: string;
@@ -15,7 +17,7 @@ export interface RedditPost {
   isVideo: boolean;
   isSelf: boolean;
   postHint?: string;
-  status?: 'discovered' | 'approved' | 'rejected' | 'script_generated';
+  status?: ProcessingStatus; // Now uses unified status
   preview?: {
     images: Array<{
       source: {
@@ -41,10 +43,7 @@ export interface ScrapingProgress {
   status?: string;
 }
 
-export type PostStatus =
-  | 'discovered'
-  | 'approved'
-  | 'rejected'
-  | 'script_generated';
+// Use unified status instead of local enum
+export type PostStatus = ProcessingStatus;
 export type SortOption = 'score' | 'date' | 'upvotes' | 'comments';
 export type SortOrder = 'asc' | 'desc';

@@ -106,9 +106,7 @@ async function start() {
   }
 }
 
-// Start server if this file is run directly
-if (typeof require !== 'undefined' && require.main === module) {
-  start();
-}
+// Start server when this file is run directly
+start();
 
 export { buildServer, start };

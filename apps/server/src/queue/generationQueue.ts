@@ -301,9 +301,9 @@ export class GenerationQueue extends EventEmitter {
           score: post.score || 0,
           upvotes: post.upvotes || 0,
           comments: post.comments || 0,
-          createdUtc: post.created_date
-            ? Math.floor(new Date(post.created_date).getTime() / 1000)
-            : 0,
+          created_at: post.created_date
+            ? new Date(post.created_date)
+            : new Date(),
           url: post.url || '',
         },
         targetDuration: job.generation_params.targetDuration,
@@ -361,16 +361,28 @@ export class GenerationQueue extends EventEmitter {
               score: post.score || 0,
               upvotes: post.upvotes || 0,
               comments: post.comments || 0,
-              createdUtc: post.created_date
-                ? Math.floor(new Date(post.created_date).getTime() / 1000)
-                : 0,
+              created_at: post.created_date
+                ? new Date(post.created_date)
+                : new Date(),
               url: post.url || '',
             },
             targetDuration: job.generation_params.targetDuration,
-            style: job.generation_params.style,
+            style: job.generation_params.style as
+              | 'motivational'
+              | 'educational'
+              | 'entertainment'
+              | 'storytelling',
             sceneCount: job.generation_params.sceneCount,
           },
-          hints.parameters
+          {
+            ...hints.parameters,
+            style: hints.parameters.style as
+              | 'motivational'
+              | 'educational'
+              | 'entertainment'
+              | 'storytelling'
+              | undefined,
+          }
         );
 
         // Re-validate

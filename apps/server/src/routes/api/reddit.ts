@@ -8,11 +8,17 @@ import { logger } from '../../utils/logger.js';
 import { RedditApiClient } from '../../services/reddit/client.js';
 import { RedditAuthService } from '../../services/reddit/auth.js';
 import { redditRateLimiter } from '../../utils/rateLimiter.js';
+import { StatusTransitionService } from '../../services/StatusTransitionService.js';
+import {
+  PostStatusManager,
+  UnifiedPostStatus,
+} from '@video-automation/shared-types';
 
 export async function redditRoutes(fastify: FastifyInstance) {
   // Initialize services
   const authService = new RedditAuthService(fastify.db, logger);
   const apiClient = new RedditApiClient(authService, logger);
+  const statusService = new StatusTransitionService(fastify.db);
 
   /**
    * Manual trigger for Reddit scraping
@@ -100,7 +106,7 @@ export async function redditRoutes(fastify: FastifyInstance) {
                   child.data.num_comments || 0, // comments field
                   child.data.created_utc, // created_date field
                   child.data.score || 0, // score field
-                  'idea', // Default status per schema
+                  'discovered', // Default unified status
                 ]
               );
               storedPosts.push(child.data.id);
@@ -197,67 +203,57 @@ export async function redditRoutes(fastify: FastifyInstance) {
   );
 
   /**
-   * Update post status (Approve/Reject)
+   * Update post status (Approve/Reject) - Using StatusTransitionService
    */
   fastify.put<{
     Params: { id: string };
-    Body: { status: string };
+    Body: { status: string; userId?: string };
   }>('/posts/:id/status', async (request, reply) => {
     try {
       const { id } = request.params;
-      const { status } = request.body;
+      const { status, userId } = request.body;
 
-      // Validate status and map frontend values to database values
-      let dbStatus = status;
+      // Map frontend status values to unified status
+      let targetStatus: UnifiedPostStatus;
+      let triggerEvent = 'api_call';
+
       if (status === 'approved') {
-        dbStatus = 'idea_selected';
+        targetStatus = 'idea_selected';
+        triggerEvent = 'user_approval';
       } else if (status === 'rejected') {
-        dbStatus = 'script_rejected';
+        targetStatus = 'rejected';
+        triggerEvent = 'user_rejection';
+      } else {
+        // Try to normalize the status directly
+        targetStatus = PostStatusManager.normalizeStatus(status);
       }
 
-      const validStatuses = [
-        'idea',
-        'idea_selected',
-        'script_generated',
-        'script_approved',
-        'script_rejected',
-        'assets_ready',
-        'rendering',
-        'completed',
-        'failed',
-      ];
-      if (!validStatuses.includes(dbStatus)) {
+      // Perform status transition with validation
+      const result = await statusService.transitionStatus({
+        postId: id,
+        targetStatus,
+        triggerEvent,
+        metadata: {
+          requestedStatus: status,
+          userAgent: request.headers['user-agent'],
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+      });
+
+      if (!result.success) {
+        // Check if it's a validation error or not found error
+        if (result.error?.includes('not found')) {
+          return reply.status(404).send({
+            success: false,
+            error: result.error,
+          });
+        }
+
         return reply.status(400).send({
           success: false,
-          error: 'Invalid status. Valid statuses: ' + validStatuses.join(', '),
-        });
-      }
-
-      // Check if post exists
-      const existingPost = fastify.db.get(
-        'SELECT * FROM reddit_posts WHERE id = ?',
-        [id]
-      ) as any;
-
-      if (!existingPost) {
-        return reply.status(404).send({
-          success: false,
-          error: 'Post not found',
-        });
-      }
-
-      // Update post status
-      const result = fastify.db.run(
-        `UPDATE reddit_posts 
-           SET status = ?, updated_at = datetime('now')
-           WHERE id = ?`,
-        [dbStatus, id]
-      );
-
-      if (result.changes === 0) {
-        return reply.status(404).send({
-          success: false,
-          error: 'Post not found or no changes made',
+          error: result.error,
+          validationErrors: result.validationErrors,
         });
       }
 
@@ -267,20 +263,30 @@ export async function redditRoutes(fastify: FastifyInstance) {
         [id]
       );
 
-      logger.info('Post status updated', {
+      logger.info('Post status transitioned successfully', {
         postId: id,
-        newStatus: status,
-        oldStatus: existingPost.status,
+        oldStatus: result.oldStatus,
+        newStatus: result.newStatus,
+        auditLogId: result.auditLogId,
+        triggerEvent,
+        userId,
       });
 
       return reply.send({
         success: true,
-        message: `Post status updated to ${status}`,
+        message: `Post status updated from ${result.oldStatus} to ${result.newStatus}`,
         post: updatedPost,
+        transition: {
+          oldStatus: result.oldStatus,
+          newStatus: result.newStatus,
+          auditLogId: result.auditLogId,
+        },
       });
     } catch (error) {
       logger.error('Failed to update post status', {
         error: error instanceof Error ? error.message : String(error),
+        postId: request.params.id,
+        requestedStatus: request.body.status,
       });
 
       return reply.status(500).send({
@@ -292,13 +298,13 @@ export async function redditRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * Batch approve posts
+   * Batch approve posts - Using StatusTransitionService
    */
   fastify.post<{
-    Body: { postIds: string[] };
+    Body: { postIds: string[]; userId?: string };
   }>('/posts/batch/approve', async (request, reply) => {
     try {
-      const { postIds } = request.body;
+      const { postIds, userId } = request.body;
 
       if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
         return reply.status(400).send({
@@ -307,29 +313,61 @@ export async function redditRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Update all posts to approved status (mapped to idea_selected)
-      const placeholders = postIds.map(() => '?').join(',');
-      const result = fastify.db.run(
-        `UPDATE reddit_posts 
-           SET status = 'idea_selected', updated_at = datetime('now')
-           WHERE id IN (${placeholders})`,
-        postIds
-      );
+      // Validate posts exist first
+      const validation = await statusService.validatePostsExist(postIds);
+      if (validation.invalid.length > 0) {
+        return reply.status(400).send({
+          success: false,
+          error: `Posts not found: ${validation.invalid.join(', ')}`,
+          invalidPostIds: validation.invalid,
+        });
+      }
+
+      // Create batch transition requests
+      const transitionRequests = postIds.map(postId => ({
+        postId,
+        targetStatus: 'idea_selected' as UnifiedPostStatus,
+        triggerEvent: 'batch_approval',
+        metadata: {
+          batchOperation: true,
+          batchSize: postIds.length,
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+      }));
+
+      // Execute batch transition
+      const results =
+        await statusService.batchTransitionStatus(transitionRequests);
+
+      const successCount = results.filter(r => r.success).length;
+      const failedResults = results.filter(r => !r.success);
 
       logger.info('Batch approve completed', {
         postIds,
-        updatedCount: result.changes,
+        requestedCount: postIds.length,
+        successCount,
+        failedCount: failedResults.length,
+        failedResults: failedResults.map(r => ({ error: r.error })),
       });
 
       return reply.send({
-        success: true,
-        message: `${result.changes} posts approved`,
-        updatedCount: result.changes,
-        requestedCount: postIds.length,
+        success: failedResults.length === 0,
+        message: `${successCount} posts approved`,
+        results: {
+          successCount,
+          failedCount: failedResults.length,
+          requestedCount: postIds.length,
+          failures:
+            failedResults.length > 0
+              ? failedResults.map(r => r.error)
+              : undefined,
+        },
       });
     } catch (error) {
       logger.error('Failed to batch approve posts', {
         error: error instanceof Error ? error.message : String(error),
+        postIds: request.body.postIds,
       });
 
       return reply.status(500).send({
@@ -341,13 +379,13 @@ export async function redditRoutes(fastify: FastifyInstance) {
   });
 
   /**
-   * Batch reject posts
+   * Batch reject posts - Using StatusTransitionService
    */
   fastify.post<{
-    Body: { postIds: string[] };
+    Body: { postIds: string[]; userId?: string };
   }>('/posts/batch/reject', async (request, reply) => {
     try {
-      const { postIds } = request.body;
+      const { postIds, userId } = request.body;
 
       if (!postIds || !Array.isArray(postIds) || postIds.length === 0) {
         return reply.status(400).send({
@@ -356,34 +394,231 @@ export async function redditRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Update all posts to rejected status (mapped to script_rejected)
-      const placeholders = postIds.map(() => '?').join(',');
-      const result = fastify.db.run(
-        `UPDATE reddit_posts 
-           SET status = 'script_rejected', updated_at = datetime('now')
-           WHERE id IN (${placeholders})`,
-        postIds
-      );
+      // Validate posts exist first
+      const validation = await statusService.validatePostsExist(postIds);
+      if (validation.invalid.length > 0) {
+        return reply.status(400).send({
+          success: false,
+          error: `Posts not found: ${validation.invalid.join(', ')}`,
+          invalidPostIds: validation.invalid,
+        });
+      }
+
+      // Create batch transition requests
+      const transitionRequests = postIds.map(postId => ({
+        postId,
+        targetStatus: 'rejected' as UnifiedPostStatus,
+        triggerEvent: 'batch_rejection',
+        metadata: {
+          batchOperation: true,
+          batchSize: postIds.length,
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+      }));
+
+      // Execute batch transition
+      const results =
+        await statusService.batchTransitionStatus(transitionRequests);
+
+      const successCount = results.filter(r => r.success).length;
+      const failedResults = results.filter(r => !r.success);
 
       logger.info('Batch reject completed', {
         postIds,
-        updatedCount: result.changes,
+        requestedCount: postIds.length,
+        successCount,
+        failedCount: failedResults.length,
+        failedResults: failedResults.map(r => ({ error: r.error })),
       });
 
       return reply.send({
-        success: true,
-        message: `${result.changes} posts rejected`,
-        updatedCount: result.changes,
-        requestedCount: postIds.length,
+        success: failedResults.length === 0,
+        message: `${successCount} posts rejected`,
+        results: {
+          successCount,
+          failedCount: failedResults.length,
+          requestedCount: postIds.length,
+          failures:
+            failedResults.length > 0
+              ? failedResults.map(r => r.error)
+              : undefined,
+        },
       });
     } catch (error) {
       logger.error('Failed to batch reject posts', {
         error: error instanceof Error ? error.message : String(error),
+        postIds: request.body.postIds,
       });
 
       return reply.status(500).send({
         success: false,
         message: 'Failed to batch reject posts',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Get status statistics and distribution
+   */
+  fastify.get('/posts/status/stats', async (request, reply) => {
+    try {
+      const stats = await statusService.getStatusStatistics();
+
+      return reply.send({
+        success: true,
+        statistics: stats,
+        total: Object.values(stats).reduce((sum, count) => sum + count, 0),
+      });
+    } catch (error) {
+      logger.error('Failed to get status statistics', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get status statistics',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Get posts by status with pagination
+   */
+  fastify.get<{
+    Params: { status: string };
+    Querystring: { page?: number; limit?: number };
+  }>('/posts/status/:status', async (request, reply) => {
+    try {
+      const { status } = request.params;
+      const { page = 1, limit = 50 } = request.query;
+
+      // Validate status
+      const normalizedStatus = PostStatusManager.normalizeStatus(status);
+
+      const result = await statusService.getPostsByStatus(
+        normalizedStatus,
+        page,
+        limit
+      );
+
+      return reply.send({
+        success: true,
+        status: normalizedStatus,
+        ...result,
+      });
+    } catch (error) {
+      logger.error('Failed to get posts by status', {
+        error: error instanceof Error ? error.message : String(error),
+        status: request.params.status,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get posts by status',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Get status history for a post
+   */
+  fastify.get<{
+    Params: { id: string };
+    Querystring: { limit?: number };
+  }>('/posts/:id/status/history', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { limit = 50 } = request.query;
+
+      const history = await statusService.getStatusHistory(id, limit);
+
+      return reply.send({
+        success: true,
+        postId: id,
+        history,
+        count: history.length,
+      });
+    } catch (error) {
+      logger.error('Failed to get status history', {
+        error: error instanceof Error ? error.message : String(error),
+        postId: request.params.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get status history',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Get valid transitions for a post
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>('/posts/:id/status/transitions', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      const validTransitions = await statusService.getValidTransitions(id);
+
+      if (validTransitions.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          error: 'Post not found or no valid transitions available',
+        });
+      }
+
+      return reply.send({
+        success: true,
+        postId: id,
+        validTransitions,
+        count: validTransitions.length,
+      });
+    } catch (error) {
+      logger.error('Failed to get valid transitions', {
+        error: error instanceof Error ? error.message : String(error),
+        postId: request.params.id,
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get valid transitions',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * Get stuck posts (posts in processing states for too long)
+   */
+  fastify.get<{
+    Querystring: { hours?: number };
+  }>('/posts/stuck', async (request, reply) => {
+    try {
+      const { hours = 24 } = request.query;
+
+      const stuckPosts = await statusService.getStuckPosts(hours);
+
+      return reply.send({
+        success: true,
+        stuckPosts,
+        count: stuckPosts.length,
+        stuckThresholdHours: hours,
+      });
+    } catch (error) {
+      logger.error('Failed to get stuck posts', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return reply.status(500).send({
+        success: false,
+        message: 'Failed to get stuck posts',
         error: error instanceof Error ? error.message : String(error),
       });
     }

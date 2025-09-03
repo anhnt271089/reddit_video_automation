@@ -14,9 +14,10 @@ CREATE TABLE reddit_posts (
     created_date TIMESTAMP NOT NULL,
     score REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN (
-        'idea', 'idea_selected', 'script_generated', 'script_approved',
-        'script_rejected', 'assets_ready', 'rendering', 'completed', 'failed'
-    )) DEFAULT 'idea',
+        'discovered', 'idea_selected', 'script_generating', 'script_generated', 
+        'script_approved', 'script_generation_failed', 'rejected', 'assets_ready', 
+        'rendering', 'completed', 'failed'
+    )) DEFAULT 'discovered',
     discovered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -111,6 +112,50 @@ CREATE INDEX idx_video_assets_script_id ON video_assets(script_id);
 CREATE INDEX idx_background_music_tone ON background_music(emotional_tone);
 CREATE INDEX idx_music_selections_script ON music_selections(script_id);
 CREATE INDEX idx_video_outputs_status ON video_outputs(status);
+
+-- Status Audit Log Table for tracking status transitions
+CREATE TABLE status_audit_log (
+    id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL REFERENCES reddit_posts(id) ON DELETE CASCADE,
+    old_status TEXT NOT NULL,
+    new_status TEXT NOT NULL,
+    trigger_event TEXT NOT NULL, -- 'api_call', 'script_generation', 'user_action', etc.
+    metadata TEXT, -- JSON serialized additional context
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT -- User ID or system process
+);
+
+-- Index for audit log queries
+CREATE INDEX idx_status_audit_post_id ON status_audit_log(post_id);
+CREATE INDEX idx_status_audit_created_at ON status_audit_log(created_at DESC);
+
+-- Create trigger for automatic status change logging
+CREATE TRIGGER log_status_changes
+    AFTER UPDATE OF status ON reddit_posts
+    FOR EACH ROW
+    WHEN OLD.status != NEW.status
+BEGIN
+    INSERT INTO status_audit_log (id, post_id, old_status, new_status, trigger_event, created_at)
+    VALUES (
+        lower(hex(randomblob(16))),
+        NEW.id,
+        OLD.status,
+        NEW.status,
+        'database_update',
+        CURRENT_TIMESTAMP
+    );
+END;
+
+-- Update updated_at trigger for reddit_posts
+DROP TRIGGER IF EXISTS update_reddit_posts_timestamp;
+CREATE TRIGGER update_reddit_posts_timestamp
+    AFTER UPDATE ON reddit_posts
+    FOR EACH ROW
+BEGIN
+    UPDATE reddit_posts 
+    SET updated_at = CURRENT_TIMESTAMP 
+    WHERE id = NEW.id;
+END;
 
 -- Sample Background Music Data
 INSERT INTO background_music (id, title, file_path, duration, emotional_tone, genre, volume_level, loop_enabled, artist, license) VALUES

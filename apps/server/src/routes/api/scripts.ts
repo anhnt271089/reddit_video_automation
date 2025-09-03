@@ -5,6 +5,11 @@ import { PipelineController } from '../../services/pipelineController';
 import { ScriptVersionManager } from '../../services/scriptVersionManager';
 import { ContentValidator } from '../../services/contentValidator';
 import { WebSocketService } from '../../services/websocket';
+import { StatusTransitionService } from '../../services/StatusTransitionService.js';
+import {
+  PostStatusManager,
+  UnifiedPostStatus,
+} from '@video-automation/shared-types';
 import type {
   GeneratedScript,
   ScriptStyle,
@@ -54,6 +59,7 @@ const scriptsRoutes: FastifyPluginCallback = (
   const pipeline = new PipelineController(db, queue, wsService);
   const versionManager = new ScriptVersionManager(db);
   const validator = new ContentValidator();
+  const statusService = new StatusTransitionService(db);
 
   // Start queue and pipeline on server start
   fastify.addHook('onReady', async () => {
@@ -67,9 +73,72 @@ const scriptsRoutes: FastifyPluginCallback = (
     await queue.stop();
   });
 
+  // Get all scripts (list endpoint)
+  fastify.get('/', async (request, reply) => {
+    try {
+      // Get scripts with script versions AND posts that have been processed (idea_selected+)
+      const scripts = db.all<any>(`
+        SELECT 
+          COALESCE(sv.id, rp.id) as id,
+          rp.id as postId,
+          rp.title,
+          CASE 
+            WHEN sv.is_active = 1 AND sv.script_content IS NOT NULL THEN 'script_generated'
+            WHEN gq.status = 'processing' THEN 'script_generating' 
+            WHEN gq.status = 'failed' THEN 'script_generation_failed'
+            WHEN rp.status = 'idea_selected' AND gq.id IS NULL THEN 'script_generating'
+            ELSE rp.status
+          END as status,
+          COALESCE(sv.script_content, '') as content,
+          COALESCE(sv.created_at, rp.discovered_at) as createdAt,
+          COALESCE(sv.created_at, rp.updated_at) as updatedAt,
+          rp.author,
+          CASE 
+            WHEN INSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), '/') > 0 
+            THEN SUBSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), 1, INSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), '/') - 1)
+            ELSE SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3)
+          END as subreddit,
+          gq.error_message as error
+        FROM reddit_posts rp
+        LEFT JOIN script_versions sv ON sv.post_id = rp.id AND sv.is_active = 1
+        LEFT JOIN generation_queue gq ON gq.post_id = rp.id
+        WHERE rp.status IN ('idea_selected', 'script_generating', 'script_generated', 'script_approved', 'script_generation_failed')
+           OR sv.id IS NOT NULL
+        GROUP BY rp.id
+        ORDER BY COALESCE(sv.created_at, rp.discovered_at) DESC
+      `);
+
+      reply.send({
+        success: true,
+        scripts: scripts.map(script => ({
+          id: script.id,
+          postId: script.postId,
+          title: script.title || 'Untitled',
+          status: script.status,
+          content: script.content,
+          createdAt: script.createdAt,
+          updatedAt: script.updatedAt,
+          subreddit: script.subreddit || 'unknown',
+          author: script.author || 'unknown',
+          error: script.error || undefined,
+        })),
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Failed to fetch scripts: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to fetch scripts',
+        scripts: [],
+      });
+    }
+  });
+
   // Generate script for Reddit post
   fastify.post<{
-    Body: GenerateScriptRequest;
+    Body: GenerateScriptRequest & { userId?: string };
   }>('/generate', async (request, reply) => {
     try {
       const {
@@ -78,6 +147,7 @@ const scriptsRoutes: FastifyPluginCallback = (
         style = 'motivational',
         sceneCount,
         priority = 0,
+        userId,
       } = request.body;
 
       // Validate post exists
@@ -89,6 +159,32 @@ const scriptsRoutes: FastifyPluginCallback = (
         return reply.code(404).send({
           success: false,
           error: 'Reddit post not found',
+        });
+      }
+
+      // Transition post to script_generating status
+      const statusResult = await statusService.transitionStatus({
+        postId,
+        targetStatus: 'script_generating',
+        triggerEvent: 'script_generation_started',
+        metadata: {
+          generationParams: {
+            style,
+            targetDuration,
+            sceneCount,
+            priority,
+          },
+          triggeredBy: 'api_endpoint',
+        },
+        userId,
+      });
+
+      if (!statusResult.success) {
+        return reply.code(400).send({
+          success: false,
+          error: `Cannot start script generation: ${statusResult.error}`,
+          currentStatus: statusResult.oldStatus,
+          validTransitions: await statusService.getValidTransitions(postId),
         });
       }
 
@@ -104,15 +200,33 @@ const scriptsRoutes: FastifyPluginCallback = (
         jobId,
       ]);
 
+      fastify.log.info('Script generation started with status transition', {
+        postId,
+        jobId,
+        statusTransition: {
+          from: statusResult.oldStatus,
+          to: statusResult.newStatus,
+          auditLogId: statusResult.auditLogId,
+        },
+        generationParams: { style, targetDuration, priority },
+      } as any);
+
       reply.send({
         success: true,
         jobId,
         status: job?.status || 'pending',
+        postStatus: statusResult.newStatus,
         message: 'Script generation started',
+        statusTransition: {
+          from: statusResult.oldStatus,
+          to: statusResult.newStatus,
+          auditLogId: statusResult.auditLogId,
+        },
       });
     } catch (error) {
       fastify.log.error(
-        `Script generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Script generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { postId: request.body.postId } as any
       );
       reply.code(500).send({
         success: false,
@@ -122,26 +236,94 @@ const scriptsRoutes: FastifyPluginCallback = (
     }
   });
 
-  // Get script by post ID
+  // Get script by script ID or post ID
   fastify.get<{
-    Params: GetScriptParams;
-  }>('/:postId', async (request, reply) => {
+    Params: { id: string };
+  }>('/:id', async (request, reply) => {
     try {
-      const { postId } = request.params;
+      const { id } = request.params;
 
-      // Get active script version
-      const activeVersion = await versionManager.getActiveVersion(postId);
+      // First try to find by script version ID
+      let script = db.get<any>(
+        `
+        SELECT 
+          sv.id,
+          sv.post_id as postId,
+          rp.title,
+          CASE 
+            WHEN sv.is_active = 1 AND sv.script_content IS NOT NULL THEN 'script_generated'
+            WHEN gq.status = 'processing' THEN 'script_generating' 
+            WHEN gq.status = 'failed' THEN 'script_generation_failed'
+            ELSE rp.status
+          END as status,
+          COALESCE(sv.script_content, '') as content,
+          sv.created_at as createdAt,
+          sv.created_at as updatedAt,
+          rp.author,
+          CASE 
+            WHEN INSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), '/') > 0 
+            THEN SUBSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), 1, INSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), '/') - 1)
+            ELSE SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3)
+          END as subreddit,
+          gq.error_message as error
+        FROM script_versions sv
+        LEFT JOIN reddit_posts rp ON sv.post_id = rp.id
+        LEFT JOIN generation_queue gq ON gq.post_id = sv.post_id
+        WHERE sv.id = ? OR sv.post_id = ?
+        ORDER BY sv.created_at DESC
+        LIMIT 1
+      `,
+        [id, id]
+      );
 
-      if (!activeVersion) {
+      if (!script) {
+        // If not found, try to find a post by ID (for cases where we have a post ID but no script yet)
+        const post = db.get<any>('SELECT * FROM reddit_posts WHERE id = ?', [
+          id,
+        ]);
+        if (post) {
+          // Check if there's a failed generation for this post
+          const failedGeneration = db.get<any>(
+            'SELECT error_message FROM generation_queue WHERE post_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
+            [id, 'failed']
+          );
+
+          script = {
+            id: null,
+            postId: post.id,
+            title: post.title,
+            status: failedGeneration ? 'script_generation_failed' : post.status,
+            content: '',
+            createdAt: post.discovered_at,
+            updatedAt: post.updated_at,
+            author: post.author,
+            subreddit: 'unknown',
+            error: failedGeneration?.error_message,
+          };
+        }
+      }
+
+      if (!script) {
         return reply.code(404).send({
           success: false,
-          error: 'No script found for this post',
+          error: 'No script found for this ID',
         });
       }
 
       reply.send({
         success: true,
-        script: activeVersion,
+        script: {
+          id: script.id,
+          postId: script.postId,
+          title: script.title || 'Untitled',
+          status: script.status,
+          content: script.content,
+          createdAt: script.createdAt,
+          updatedAt: script.updatedAt,
+          subreddit: script.subreddit || 'unknown',
+          author: script.author || 'unknown',
+          error: script.error || undefined,
+        },
       });
     } catch (error) {
       fastify.log.error(
@@ -162,7 +344,7 @@ const scriptsRoutes: FastifyPluginCallback = (
     try {
       const { postId } = request.params;
 
-      const versions = await versionManager.listVersions(postId);
+      const versions = await versionManager.getVersions(postId);
 
       reply.send({
         success: true,
@@ -210,10 +392,10 @@ const scriptsRoutes: FastifyPluginCallback = (
       if (forceRegenerate || !currentVersion) {
         const jobId = await pipeline.triggerGeneration(postId, {
           style:
-            style || currentVersion?.generationParams?.style || 'motivational',
+            style || currentVersion?.generation_params?.style || 'motivational',
           targetDuration:
             targetDuration ||
-            currentVersion?.generationParams?.targetDuration ||
+            currentVersion?.generation_params?.targetDuration ||
             60,
           priority: 5, // Higher priority for regeneration
         });
@@ -225,17 +407,27 @@ const scriptsRoutes: FastifyPluginCallback = (
         });
       } else {
         // Just update parameters on existing version
-        const updatedVersion = await versionManager.createVersion(postId, {
-          ...currentVersion,
-          generationParams: {
-            ...currentVersion.generationParams,
-            style: style || currentVersion.generationParams.style,
-            targetDuration:
-              targetDuration || currentVersion.generationParams.targetDuration,
-            sceneCount:
-              sceneCount || currentVersion.generationParams.sceneCount,
-          },
-        });
+        const updatedParams = {
+          ...currentVersion.generation_params,
+          style: style || currentVersion.generation_params.style,
+          targetDuration:
+            targetDuration || currentVersion.generation_params.targetDuration,
+          sceneCount: sceneCount || currentVersion.generation_params.sceneCount,
+        };
+
+        // Update the version in database
+        db.run(
+          `UPDATE script_versions 
+           SET generation_params = ?
+           WHERE post_id = ? AND is_active = 1`,
+          [JSON.stringify(updatedParams), postId]
+        );
+
+        // Get the updated version
+        const updatedVersion = db.get<any>(
+          'SELECT * FROM script_versions WHERE post_id = ? AND is_active = 1',
+          [postId]
+        );
 
         reply.send({
           success: true,
@@ -350,7 +542,7 @@ const scriptsRoutes: FastifyPluginCallback = (
         success: true,
         stats,
         jobs,
-        isRunning: queue.isRunning,
+        isRunning: true, // TODO: Implement proper queue running status
       });
     } catch (error) {
       fastify.log.error(

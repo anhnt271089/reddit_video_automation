@@ -3,16 +3,10 @@
  * Shared between frontend and backend with full TypeScript type safety
  */
 
-export type ProcessingStatus =
-  | 'idea'
-  | 'idea_selected'
-  | 'script_generated'
-  | 'script_approved'
-  | 'script_rejected'
-  | 'assets_ready'
-  | 'rendering'
-  | 'completed'
-  | 'failed';
+import type { UnifiedPostStatus } from '../services/PostStatusManager.js';
+
+// Use unified status as the single source of truth
+export type ProcessingStatus = UnifiedPostStatus;
 
 export interface RedditPost {
   id: string;
@@ -45,7 +39,7 @@ export interface ContentDiscoveryPost {
   comments: number;
   created_at: string;
   url: string;
-  status: 'discovered' | 'approved' | 'rejected' | 'script_generated';
+  status: ProcessingStatus; // Now uses unified status
   quality_score?: number;
 }
 

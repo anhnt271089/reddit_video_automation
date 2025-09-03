@@ -147,10 +147,23 @@ export class PipelineController extends EventEmitter {
    * Process any pending posts on startup
    */
   private async processPendingPosts(): Promise<void> {
-    const pendingCount = await this.checkForApprovedPosts();
+    // Check for approved posts and get their count
+    const approvedPosts = this.db.all<any>(
+      `SELECT * FROM reddit_posts 
+       WHERE status = ? 
+       AND id NOT IN (
+         SELECT post_id FROM generation_queue 
+         WHERE status IN ('pending', 'processing')
+       )`,
+      ['idea_selected']
+    );
 
-    if (pendingCount > 0) {
-      logger.info('Processing pending approved posts', { count: pendingCount });
+    if (approvedPosts.length > 0) {
+      logger.info('Processing pending approved posts', {
+        count: approvedPosts.length,
+      });
+      // Process them by calling the existing method
+      await this.checkForApprovedPosts();
     }
   }
 

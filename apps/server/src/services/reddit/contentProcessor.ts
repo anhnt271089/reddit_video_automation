@@ -86,7 +86,7 @@ export class ContentProcessor {
     const qualityScore = this.calculateQualityScore(post);
 
     if (qualityScore >= 85) {
-      return 'approved';
+      return 'idea_selected';
     }
     if (qualityScore < 50) {
       return 'rejected';

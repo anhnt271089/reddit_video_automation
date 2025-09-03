@@ -23,8 +23,8 @@ console.log(
 // Generate 50 mock Reddit posts
 function generateMockPosts(): ContentDiscoveryPost[] {
   const statuses: Array<
-    'discovered' | 'approved' | 'rejected' | 'script_generated'
-  > = ['discovered', 'approved', 'rejected', 'script_generated'];
+    'discovered' | 'idea_selected' | 'rejected' | 'script_generated'
+  > = ['discovered', 'idea_selected', 'rejected', 'script_generated'];
 
   const subreddits = [
     'motivation',

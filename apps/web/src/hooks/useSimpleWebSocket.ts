@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface UseWebSocketOptions {
   onMessage?: (message: MessageEvent) => void;
@@ -34,7 +34,7 @@ export function useWebSocket(
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
-  const connect = () => {
+  const connect = useCallback(() => {
     try {
       ws.current = new WebSocket(url);
 
@@ -71,7 +71,7 @@ export function useWebSocket(
       console.error('WebSocket connection failed:', error);
       setIsConnected(false);
     }
-  };
+  }, [url, options]);
 
   const disconnect = () => {
     if (reconnectTimeoutRef.current) {
@@ -107,7 +107,7 @@ export function useWebSocket(
     return () => {
       disconnect();
     };
-  }, [url]);
+  }, [connect]);
 
   return {
     isConnected,
