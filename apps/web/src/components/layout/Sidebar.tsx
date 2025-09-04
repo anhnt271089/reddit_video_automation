@@ -23,10 +23,10 @@ const navigation: NavigationItem[] = [
     description: 'Review Reddit posts',
   },
   {
-    name: 'Script Workflow',
+    name: 'Scripts',
     href: '/scripts',
     icon: '📜',
-    description: 'Manage video scripts',
+    description: 'View and manage scripts',
   },
   {
     name: 'Asset Management',

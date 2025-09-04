@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { PromptTemplates } from './prompts';
 import { ContentProcessor } from './contentProcessor';
 import {
@@ -11,20 +10,9 @@ import {
 
 export class ClaudeCodeScriptGenerator {
   private contentProcessor: ContentProcessor;
-  private anthropic: Anthropic;
 
   constructor() {
     this.contentProcessor = new ContentProcessor();
-
-    // Initialize Anthropic client with API key from environment
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY environment variable is required');
-    }
-
-    this.anthropic = new Anthropic({
-      apiKey: apiKey,
-    });
   }
 
   async generateScript(
@@ -102,53 +90,85 @@ export class ClaudeCodeScriptGenerator {
     systemPrompt: string,
     userPrompt: string
   ): Promise<string> {
-    try {
-      const response = await this.anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 4096,
-        temperature: 0.7,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
+    // Claude Code Integration Point
+    // This method will be invoked by Claude Code when the script generation workflow is triggered
+    // The systemPrompt and userPrompt will be processed by Claude Code's AI system
+
+    const fullPrompt = `${systemPrompt}\n\nUser Request:\n${userPrompt}`;
+
+    // Simulate Claude Code processing for now - this will be replaced by actual Claude Code execution
+    // In production, this method will be called by the Claude Code system
+    console.log('Processing with Claude Code integration...');
+    console.log('System Prompt:', systemPrompt);
+    console.log('User Prompt:', userPrompt);
+
+    // Return mock response for now - Claude Code will provide actual response
+    return this.getMockClaudeCodeResponse();
+  }
+
+  private getMockClaudeCodeResponse(): string {
+    return JSON.stringify({
+      script:
+        "Welcome to today's motivational video! Let me share an incredible story from Reddit that shows the power of perseverance. This story will inspire you to never give up on your dreams and push through any obstacle.",
+      scenes: [
+        {
+          narration:
+            'Picture this: A young person facing their biggest challenge yet.',
+          duration: 15,
+          visualKeywords: [
+            'challenge',
+            'determination',
+            'young person',
+            'obstacle',
+          ],
+          emotion: 'motivational',
+        },
+        {
+          narration:
+            'They could have given up, but instead they chose to fight.',
+          duration: 15,
+          visualKeywords: ['fight', 'courage', 'never give up', 'strength'],
+          emotion: 'motivational',
+        },
+        {
+          narration:
+            'And that choice changed everything. Their persistence paid off.',
+          duration: 15,
+          visualKeywords: ['success', 'achievement', 'persistence', 'victory'],
+          emotion: 'motivational',
+        },
+        {
+          narration:
+            'This proves that with the right mindset, anything is possible.',
+          duration: 15,
+          visualKeywords: ['mindset', 'possibility', 'growth', 'inspiration'],
+          emotion: 'motivational',
+        },
+      ],
+      metadata: {
+        titles: [
+          'This Reddit Story Will Change Your Perspective Forever',
+          'The Power of Never Giving Up - Incredible Story',
+          "Why This Person's Journey Proves Anything is Possible",
+          'Amazing Transformation: From Fear to Confidence',
+          'How One Decision Changed Everything - Inspirational Story',
         ],
-      });
-
-      // Extract text content from the response
-      const textContent = response.content
-        .filter(block => block.type === 'text')
-        .map(block => (block as { text: string }).text)
-        .join('\n');
-
-      return textContent;
-    } catch (error) {
-      console.error('Claude API error:', error);
-
-      // Handle specific API errors
-      if (error instanceof Error && error.message.includes('api_key')) {
-        throw new Error(
-          'Invalid Anthropic API key. Please check your ANTHROPIC_API_KEY environment variable.'
-        );
-      }
-
-      if (error instanceof Error && error.message.includes('rate_limit')) {
-        throw new Error(
-          'Claude API rate limit exceeded. Please try again later.'
-        );
-      }
-
-      if (error instanceof Error && error.message.includes('invalid_request')) {
-        throw new Error(
-          'Invalid request to Claude API. Please check the prompt format.'
-        );
-      }
-
-      throw new Error(
-        `Failed to process with Claude API: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+        description:
+          "An inspiring story from Reddit that demonstrates the incredible power of perseverance and determination in overcoming life's challenges.",
+        thumbnailConcepts: [
+          'Person climbing mountain with sunrise in background',
+          'Before and after transformation split screen',
+          'Motivational quote overlay on success imagery',
+        ],
+        tags: [
+          'motivation',
+          'inspiration',
+          'never give up',
+          'success story',
+          'perseverance',
+        ],
+      },
+    });
   }
 
   private parseClaudeResponse(response: string): ClaudeCodeResponse {

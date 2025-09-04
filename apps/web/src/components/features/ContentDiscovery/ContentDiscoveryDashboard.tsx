@@ -224,16 +224,13 @@ export const ContentDiscoveryDashboard: React.FC<
     setLoading(true);
     try {
       // First try to get real Reddit data via the scrape endpoint
-      const scrapeResponse = await fetch(
-        'http://localhost:3001/api/reddit/scrape',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}), // Empty body to satisfy the JSON parser
-        }
-      );
+      const scrapeResponse = await fetch('/api/reddit/scrape', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}), // Empty body to satisfy the JSON parser
+      });
 
       if (scrapeResponse.ok) {
         const scrapeData = await scrapeResponse.json();
@@ -279,9 +276,7 @@ export const ContentDiscoveryDashboard: React.FC<
       }
 
       // Fallback: Try to get stored posts
-      const storedResponse = await fetch(
-        'http://localhost:3001/api/reddit/posts'
-      );
+      const storedResponse = await fetch('/api/reddit/posts');
       if (storedResponse.ok) {
         const storedData = await storedResponse.json();
         if (storedData.posts && storedData.posts.length > 0) {
@@ -335,16 +330,13 @@ export const ContentDiscoveryDashboard: React.FC<
   // Post action handlers
   const handleApprovePost = async (postId: string) => {
     try {
-      const response = await fetch(
-        `http://localhost:3001/api/reddit/posts/${postId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: 'idea_selected' }),
-        }
-      );
+      const response = await fetch(`/api/reddit/posts/${postId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'approved' }),
+      });
 
       if (response.ok) {
         setPosts(prevPosts =>
@@ -362,16 +354,13 @@ export const ContentDiscoveryDashboard: React.FC<
 
   const handleRejectPost = async (postId: string) => {
     try {
-      const response = await fetch(
-        `http://localhost:3001/api/reddit/posts/${postId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: 'rejected' }),
-        }
-      );
+      const response = await fetch(`/api/reddit/posts/${postId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'rejected' }),
+      });
 
       if (response.ok) {
         setPosts(prevPosts =>
@@ -396,20 +385,17 @@ export const ContentDiscoveryDashboard: React.FC<
         )
       );
 
-      const response = await fetch(
-        'http://localhost:3001/api/scripts/generate',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            postId,
-            targetDuration: 60,
-            style: 'motivational',
-          }),
-        }
-      );
+      const response = await fetch('/api/scripts/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          postId,
+          targetDuration: 60,
+          style: 'motivational',
+        }),
+      });
 
       if (response.ok) {
         setPosts(prevPosts =>
@@ -451,16 +437,13 @@ export const ContentDiscoveryDashboard: React.FC<
   const handleBatchApprove = async (postIds: string[]) => {
     setBatchLoading(true);
     try {
-      const response = await fetch(
-        'http://localhost:3001/api/reddit/posts/batch/approve',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ postIds }),
-        }
-      );
+      const response = await fetch('/api/reddit/posts/batch/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ postIds }),
+      });
 
       if (response.ok) {
         setPosts(prevPosts =>
@@ -561,7 +544,7 @@ export const ContentDiscoveryDashboard: React.FC<
   const checkRedditAuth = useCallback(async () => {
     setRedditAuthStatus(prev => ({ ...prev, checking: true }));
     try {
-      const response = await fetch('http://localhost:3001/auth/reddit/status');
+      const response = await fetch('/auth/reddit/status');
       const data = await response.json();
       setRedditAuthStatus({
         authenticated: data.data?.authenticated && data.data?.valid,
@@ -581,11 +564,7 @@ export const ContentDiscoveryDashboard: React.FC<
 
   const handleRedditAuth = () => {
     // Open Reddit OAuth in new window
-    window.open(
-      'http://localhost:3001/auth/reddit',
-      '_blank',
-      'width=600,height=700'
-    );
+    window.open('/auth/reddit', '_blank', 'width=600,height=700');
 
     // Check auth status after a delay to allow user to complete OAuth
     setTimeout(() => {
