@@ -119,7 +119,7 @@ export const UI_BUTTON_CONFIG: Record<
     showApprove: false,
     showReject: true,
     showView: true,
-    showGenerate: true, // Allow regeneration
+    showGenerate: false, // Hide regeneration button after script is generated
     showViewScript: true,
     primaryAction: 'View Script Details',
   },
@@ -317,6 +317,9 @@ export class PostStatusManager {
     }
     if (this.isInCategory(status, 'APPROVED')) {
       return 'secondary';
+    }
+    if (this.isInCategory(status, 'GENERATED')) {
+      return 'success'; // Script Ready gets green success styling
     }
     if (
       this.isInCategory(status, 'GENERATING') ||
