@@ -103,6 +103,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           key="view-reddit"
           size="sm"
           variant="outline"
+          className="text-xs px-2 py-1"
           onClick={() => {
             let redditUrl: string;
             if (post.permalink) {
@@ -129,7 +130,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           key="approve"
           size="sm"
           variant="outline"
-          className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+          className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 text-xs px-2 py-1"
           onClick={() => onApprove(post.id)}
           disabled={isProcessing}
         >
@@ -145,7 +146,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           key="reject"
           size="sm"
           variant="outline"
-          className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+          className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100 text-xs px-2 py-1"
           onClick={() => onReject(post.id)}
           disabled={isProcessing}
         >
@@ -161,7 +162,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         <Button
           key="generate"
           size="sm"
-          className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+          className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 text-xs px-2 py-1"
           onClick={() => onGenerateScript(post.id)}
           disabled={isGenerating}
         >
@@ -177,7 +178,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           key="view-script"
           size="sm"
           variant="default"
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1"
           onClick={() => onViewScript(post.id)}
         >
           📄 View Script Details
@@ -196,7 +197,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
   return (
     <Card
-      className={`modern-card p-4 transition-all duration-200 ${
+      className={`p-3 transition-all duration-200 border border-gray-200 ${
         isSelected ? 'ring-2 ring-purple-500' : ''
       } ${isProcessing ? 'animate-pulse' : ''}`}
     >
@@ -211,8 +212,8 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="text-xl font-semibold text-gray-900 line-clamp-2 leading-tight">
+          <div className="flex items-start justify-between mb-1">
+            <h3 className="text-base font-semibold text-gray-900 line-clamp-2 leading-tight">
               {post.title}
             </h3>
             {post.status && (
@@ -223,10 +224,12 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
 
           {post.selftext && (
-            <div className="text-base text-gray-600 mb-3">
-              <p className={showFullContent ? '' : 'line-clamp-3'}>
-                {post.selftext}
-              </p>
+            <div className="text-sm text-gray-600 mb-2">
+              <div className={showFullContent ? '' : 'line-clamp-3'}>
+                <pre className="whitespace-pre-wrap font-sans leading-relaxed">
+                  {post.selftext}
+                </pre>
+              </div>
               {post.selftext.length > 200 && (
                 <button
                   onClick={() => setShowFullContent(!showFullContent)}
@@ -238,7 +241,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-3">
+          <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
             <span className="font-medium">r/{post.subreddit}</span>
             <span>•</span>
             <span>u/{post.author}</span>
@@ -246,20 +249,20 @@ export const PostCard: React.FC<PostCardProps> = ({
             <span>{formatDate(post)}</span>
           </div>
 
-          <div className="flex items-center gap-4 mb-3">
+          <div className="flex items-center gap-3 mb-2">
             <div className="flex items-center space-x-1">
               <span className="w-5 h-5 text-orange-500">⬆</span>
-              <span className="text-base font-medium">
+              <span className="text-sm font-medium">
                 {formatScore(post.score)}
               </span>
             </div>
             <div className="flex items-center space-x-1">
               <span className="w-5 h-5 text-blue-500">💬</span>
-              <span className="text-base">{post.numComments || 0}</span>
+              <span className="text-sm">{post.numComments || 0}</span>
             </div>
             {post.upvoteRatio && (
               <div className="flex items-center space-x-1">
-                <span className="text-base text-gray-600">
+                <span className="text-sm text-gray-600">
                   {Math.round(post.upvoteRatio * 100)}% upvoted
                 </span>
               </div>

@@ -60,7 +60,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
 
   if (!someSelected && !showConfirmation) {
     return (
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+      <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 mb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <input
@@ -85,7 +85,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
   if (showConfirmation) {
     const { action, count } = showConfirmation;
     return (
-      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+      <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-200 mb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <span className="text-yellow-600">⚠️</span>
@@ -104,6 +104,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
               size="sm"
               onClick={cancelAction}
               disabled={isLoading}
+              className="text-xs px-2 py-1"
             >
               Cancel
             </Button>
@@ -120,6 +121,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
                 }
               }}
               disabled={isLoading}
+              className="text-xs px-2 py-1"
             >
               {isLoading ? 'Processing...' : `Confirm ${action}`}
             </Button>
@@ -130,7 +132,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
   }
 
   return (
-    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+    <div className="bg-blue-50 p-2 rounded-lg border border-blue-200 mb-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <input
@@ -163,7 +165,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             size="sm"
             onClick={() => confirmAction('approve', selectedCount)}
             disabled={isLoading || actionInProgress === 'approve'}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 text-xs px-2 py-1"
           >
             {actionInProgress === 'approve'
               ? 'Approving...'
@@ -175,6 +177,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             size="sm"
             onClick={() => confirmAction('reject', selectedCount)}
             disabled={isLoading || actionInProgress === 'reject'}
+            className="text-xs px-2 py-1"
           >
             {actionInProgress === 'reject'
               ? 'Rejecting...'
@@ -186,7 +189,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
             size="sm"
             onClick={() => confirmAction('generate scripts', selectedCount)}
             disabled={isLoading || actionInProgress === 'generate'}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-purple-600 hover:bg-purple-700 text-xs px-2 py-1"
           >
             {actionInProgress === 'generate'
               ? 'Generating...'
@@ -194,7 +197,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
           </Button>
 
           <div className="relative">
-            <Button variant="outline" size="sm" className="px-2">
+            <Button variant="outline" size="sm" className="text-xs px-2 py-1">
               ⋯
             </Button>
             {/* TODO: Add dropdown with more actions:
