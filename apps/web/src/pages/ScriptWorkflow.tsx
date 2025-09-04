@@ -303,9 +303,16 @@ function ScriptDetailView({ scriptId }: { scriptId: string }) {
         const listResponse = await fetch('http://localhost:3001/api/scripts');
         if (listResponse.ok) {
           const listData = await listResponse.json();
-          const foundScript = listData.scripts?.find(
+          let foundScript = listData.scripts?.find(
             (s: Script) => s.id === scriptId
           );
+
+          // If not found by scriptId, try to find by postId (fallback for navigation from PostCard)
+          if (!foundScript) {
+            foundScript = listData.scripts?.find(
+              (s: Script) => s.postId === scriptId
+            );
+          }
 
           if (foundScript) {
             setScript(foundScript);

@@ -20,22 +20,50 @@ export const ContentDiscoveryDashboard: React.FC<
 > = ({ initialPosts = [] }) => {
   const navigate = useNavigate();
 
-  // State management
-  const [posts, setPosts] = useState<RedditPost[]>(initialPosts);
+  // State management with session storage persistence
+  const [posts, setPosts] = useState<RedditPost[]>(() => {
+    if (initialPosts.length > 0) {
+      return initialPosts;
+    }
+
+    // Try to load from session storage
+    const savedPosts = sessionStorage.getItem('contentDiscovery.posts');
+    if (savedPosts) {
+      try {
+        return JSON.parse(savedPosts);
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  });
   const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
-  const [filters, setFilters] = useState<PostFiltersType>({
-    search: '',
-    status: 'all',
-    sortBy: 'date',
-    sortOrder: 'desc',
-    minScore: 0,
-    subreddit: '',
-    dateRange: {
-      start: '',
-      end: '',
-    },
+  const [filters, setFilters] = useState<PostFiltersType>(() => {
+    // Try to load filters from session storage
+    const savedFilters = sessionStorage.getItem('contentDiscovery.filters');
+    if (savedFilters) {
+      try {
+        return JSON.parse(savedFilters);
+      } catch {
+        // Fall back to defaults
+      }
+    }
+
+    return {
+      search: '',
+      status: 'all',
+      sortBy: 'date',
+      sortOrder: 'desc',
+      minScore: 0,
+      subreddit: '',
+      dateRange: {
+        start: '',
+        end: '',
+      },
+    };
   });
 
   // Reddit API status
@@ -266,6 +294,11 @@ export const ContentDiscoveryDashboard: React.FC<
           );
 
           setPosts(redditPosts);
+          // Save to session storage
+          sessionStorage.setItem(
+            'contentDiscovery.posts',
+            JSON.stringify(redditPosts)
+          );
           setRedditApiStatus({
             isHealthy: true,
             lastChecked: new Date(),
@@ -281,12 +314,23 @@ export const ContentDiscoveryDashboard: React.FC<
         const storedData = await storedResponse.json();
         if (storedData.posts && storedData.posts.length > 0) {
           setPosts(storedData.posts);
+          // Save to session storage
+          sessionStorage.setItem(
+            'contentDiscovery.posts',
+            JSON.stringify(storedData.posts)
+          );
           return;
         }
       }
 
       // Final fallback: Use mock data with a warning
-      setPosts(generateMockPosts());
+      const mockPosts = generateMockPosts();
+      setPosts(mockPosts);
+      // Save to session storage
+      sessionStorage.setItem(
+        'contentDiscovery.posts',
+        JSON.stringify(mockPosts)
+      );
       setRedditApiStatus({
         isHealthy: false,
         lastChecked: new Date(),
@@ -294,7 +338,13 @@ export const ContentDiscoveryDashboard: React.FC<
       });
     } catch {
       // Use mock data for development
-      setPosts(generateMockPosts());
+      const mockPosts = generateMockPosts();
+      setPosts(mockPosts);
+      // Save to session storage
+      sessionStorage.setItem(
+        'contentDiscovery.posts',
+        JSON.stringify(mockPosts)
+      );
       setRedditApiStatus({
         isHealthy: false,
         lastChecked: new Date(),
@@ -305,12 +355,24 @@ export const ContentDiscoveryDashboard: React.FC<
     }
   }, []);
 
-  // Load posts on component mount
+  // Load posts on component mount only if no cached data exists
   useEffect(() => {
-    if (initialPosts.length === 0) {
+    if (initialPosts.length === 0 && posts.length === 0) {
       loadPosts();
     }
-  }, [loadPosts, initialPosts.length]);
+  }, [loadPosts, initialPosts.length, posts.length]);
+
+  // Save posts to session storage when posts change
+  useEffect(() => {
+    if (posts.length > 0) {
+      sessionStorage.setItem('contentDiscovery.posts', JSON.stringify(posts));
+    }
+  }, [posts]);
+
+  // Save filters to session storage when filters change
+  useEffect(() => {
+    sessionStorage.setItem('contentDiscovery.filters', JSON.stringify(filters));
+  }, [filters]);
 
   // Selection handlers
   const handleSelectPost = (postId: string, selected: boolean) => {
@@ -327,9 +389,22 @@ export const ContentDiscoveryDashboard: React.FC<
     setSelectedPosts([]);
   };
 
+  // Track ongoing requests to prevent duplicates
+  const [processingPosts, setProcessingPosts] = useState<Set<string>>(
+    new Set()
+  );
+
   // Post action handlers
   const handleApprovePost = async (postId: string) => {
+    // Prevent duplicate requests
+    if (processingPosts.has(postId)) {
+      console.log('Request already in progress for post:', postId);
+      return;
+    }
+
     try {
+      setProcessingPosts(prev => new Set(prev).add(postId));
+
       const response = await fetch(`/api/reddit/posts/${postId}/status`, {
         method: 'PUT',
         headers: {
@@ -346,14 +421,45 @@ export const ContentDiscoveryDashboard: React.FC<
               : post
           )
         );
+      } else {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Unknown error' }));
+        console.warn(
+          `Failed to approve post ${postId}:`,
+          response.status,
+          errorData
+        );
+
+        // Don't throw error if the post was already processed (409 or similar)
+        if (response.status === 409 || response.status === 400) {
+          console.log(
+            'Post might already be processed, checking current state...'
+          );
+          // Optionally refresh the posts to get current state
+        }
       }
     } catch (error) {
       console.error('Post approval error:', error);
+    } finally {
+      setProcessingPosts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(postId);
+        return newSet;
+      });
     }
   };
 
   const handleRejectPost = async (postId: string) => {
+    // Prevent duplicate requests
+    if (processingPosts.has(postId)) {
+      console.log('Request already in progress for post:', postId);
+      return;
+    }
+
     try {
+      setProcessingPosts(prev => new Set(prev).add(postId));
+
       const response = await fetch(`/api/reddit/posts/${postId}/status`, {
         method: 'PUT',
         headers: {
@@ -368,9 +474,31 @@ export const ContentDiscoveryDashboard: React.FC<
             post.id === postId ? { ...post, status: 'rejected' as const } : post
           )
         );
+      } else {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Unknown error' }));
+        console.warn(
+          `Failed to reject post ${postId}:`,
+          response.status,
+          errorData
+        );
+
+        // Don't throw error if the post was already processed
+        if (response.status === 409 || response.status === 400) {
+          console.log(
+            'Post might already be processed, checking current state...'
+          );
+        }
       }
     } catch (error) {
       console.error('Post rejection error:', error);
+    } finally {
+      setProcessingPosts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(postId);
+        return newSet;
+      });
     }
   };
 
@@ -429,7 +557,26 @@ export const ContentDiscoveryDashboard: React.FC<
   };
 
   const handleViewScript = async (postId: string) => {
-    // Navigate to scripts page with the specific post ID
+    try {
+      // First fetch scripts to find the actual script ID for this post
+      const response = await fetch('/api/scripts');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.scripts) {
+          // Find the script with matching postId
+          const script = data.scripts.find((s: any) => s.postId === postId);
+          if (script && script.id) {
+            // Navigate with the actual script ID
+            navigate(`/scripts/${script.id}`);
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching script for navigation:', error);
+    }
+
+    // Fallback: still try to navigate with postId (this maintains existing behavior)
     navigate(`/scripts/${postId}`);
   };
 
@@ -918,6 +1065,7 @@ export const ContentDiscoveryDashboard: React.FC<
                     onViewScript={handleViewScript}
                     isSelected={selectedPosts.includes(post.id)}
                     onSelect={handleSelectPost}
+                    isProcessing={processingPosts.has(post.id)}
                   />
                 </div>
               ))}
