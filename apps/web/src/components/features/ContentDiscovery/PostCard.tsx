@@ -13,6 +13,7 @@ interface PostCardProps {
   onViewScript?: (postId: string) => void;
   isSelected?: boolean;
   onSelect?: (postId: string) => void;
+  isProcessing?: boolean;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -23,6 +24,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onViewScript,
   isSelected,
   onSelect,
+  isProcessing,
 }) => {
   const formatScore = (score: number) => {
     if (score >= 1000) {
@@ -129,8 +131,9 @@ export const PostCard: React.FC<PostCardProps> = ({
           variant="outline"
           className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
           onClick={() => onApprove(post.id)}
+          disabled={isProcessing}
         >
-          ✓ Approve
+          {isProcessing ? '⏳ Processing...' : '✓ Approve'}
         </Button>
       );
     }
@@ -144,8 +147,9 @@ export const PostCard: React.FC<PostCardProps> = ({
           variant="outline"
           className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
           onClick={() => onReject(post.id)}
+          disabled={isProcessing}
         >
-          ✗ Reject
+          {isProcessing ? '⏳ Processing...' : '✗ Reject'}
         </Button>
       );
     }
@@ -187,7 +191,8 @@ export const PostCard: React.FC<PostCardProps> = ({
   const normalizedStatus = PostStatusManager.normalizeStatus(
     post.status || 'discovered'
   );
-  const isProcessing = PostStatusManager.isProcessingStatus(normalizedStatus);
+  const isStatusProcessing =
+    PostStatusManager.isProcessingStatus(normalizedStatus);
 
   return (
     <Card
