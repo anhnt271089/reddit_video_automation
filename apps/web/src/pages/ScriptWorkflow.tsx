@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../components/ui/Card';
+import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Progress } from '../components/ui/ProgressBar';
+import { ScriptDetailPage } from '../components/script-detail/ScriptDetailPage';
+import type {
+  ScriptWithMetadata,
+  ClaudeCodeMetadata,
+  ContentPackage,
+} from '../types/claude-code';
 import { PostStatusManager } from '@video-automation/shared-types';
 
 interface Script {
@@ -151,11 +150,6 @@ export function ScriptWorkflow() {
             Manage your AI-generated video scripts
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => navigate('/content-review')}>
-            Generate New Script
-          </Button>
-        </div>
       </div>
 
       {/* Search and Filter Controls */}
@@ -196,9 +190,6 @@ export function ScriptWorkflow() {
               ? 'No scripts match your filters.'
               : 'No scripts generated yet.'}
           </p>
-          <Button className="mt-4" onClick={() => navigate('/content-review')}>
-            Generate Your First Script
-          </Button>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -288,303 +279,46 @@ export function ScriptWorkflow() {
 
 // Script Detail View Component (when scriptId is provided)
 function ScriptDetailView({ scriptId }: { scriptId: string }) {
-  const navigate = useNavigate();
-  const [script, setScript] = useState<Script | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchScript = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // First try to find the script in the list by scriptId
-        const listResponse = await fetch('http://localhost:3001/api/scripts');
-        if (listResponse.ok) {
-          const listData = await listResponse.json();
-          let foundScript = listData.scripts?.find(
-            (s: Script) => s.id === scriptId
-          );
-
-          // If not found by scriptId, try to find by postId (fallback for navigation from PostCard)
-          if (!foundScript) {
-            foundScript = listData.scripts?.find(
-              (s: Script) => s.postId === scriptId
-            );
-          }
-
-          if (foundScript) {
-            setScript(foundScript);
-          } else {
-            // If not found in list, try individual endpoint
-            const response = await fetch(
-              `http://localhost:3001/api/scripts/${scriptId}`
-            );
-            if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.script) {
-                setScript({
-                  id: data.script.id,
-                  postId: data.script.post_id,
-                  title: data.script.title || 'Untitled Script',
-                  status: 'script_generated',
-                  content: data.script.script_content || '',
-                  createdAt: data.script.created_at,
-                  updatedAt: data.script.created_at,
-                  subreddit: 'unknown',
-                  author: 'unknown',
-                });
-              } else {
-                setError('Script not found');
-              }
-            } else {
-              setError('Failed to load script details');
-            }
-          }
-        } else {
-          setError('Failed to load scripts');
-        }
-      } catch (error) {
-        console.error('Failed to load script:', error);
-        setError('Failed to load script details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchScript();
-  }, [scriptId]);
-
-  const handleRetryFromDetail = async () => {
-    if (!script) {
-      return;
-    }
-
+  const handleScriptSave = async (
+    script: ScriptWithMetadata,
+    metadata: ClaudeCodeMetadata
+  ) => {
     try {
-      const response = await fetch(
-        'http://localhost:3001/api/scripts/generate',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            postId: script.postId,
-            targetDuration: 60,
-            style: 'motivational',
-          }),
-        }
-      );
-
-      if (response.ok) {
-        // Refresh the script data
-        window.location.reload(); // Simple refresh for now
-      } else {
-        console.error('Failed to retry script generation');
-      }
+      // TODO: Implement actual save to backend
+      console.log('Saving script and metadata:', { script, metadata });
     } catch (error) {
-      console.error('Error retrying script generation:', error);
+      console.error('Failed to save script:', error);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Loading script details...</p>
-      </div>
-    );
-  }
+  const handleContentExport = (contentPackage: ContentPackage) => {
+    try {
+      // TODO: Implement actual export functionality
+      console.log('Exporting content package:', contentPackage);
 
-  if (error || !script) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-destructive">{error || 'Script not found'}</p>
-        <Button className="mt-4" onClick={() => navigate('/scripts')}>
-          Back to Scripts
-        </Button>
-      </div>
-    );
-  }
+      // For now, download as JSON file
+      const blob = new Blob([JSON.stringify(contentPackage, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `script-${scriptId}-content-package.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export content package:', error);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/scripts')}
-            className="mb-4"
-          >
-            ← Back to Scripts
-          </Button>
-          <h1 className="text-3xl font-bold">{script.title}</h1>
-          <p className="text-muted-foreground">
-            r/{script.subreddit} • u/{script.author}
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          <Button variant="outline">Save Draft</Button>
-          <Button>Approve Script</Button>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Generated Script</CardTitle>
-              <CardDescription>
-                AI-generated video script based on the Reddit post
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {script.content ? (
-                <div className="space-y-4">
-                  <div className="prose prose-sm max-w-none">
-                    <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {script.content}
-                    </pre>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="text-sm text-muted-foreground">
-                      Generated:{' '}
-                      {new Date(script.createdAt).toLocaleDateString()}
-                    </div>
-                    <Badge
-                      variant={
-                        script.status === 'script_generated'
-                          ? 'default'
-                          : script.status === 'script_approved'
-                            ? 'secondary'
-                            : script.status === 'script_generation_failed'
-                              ? 'destructive'
-                              : 'outline'
-                      }
-                    >
-                      {PostStatusManager.getDisplayName(script.status)}
-                    </Badge>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No script content available</p>
-                  {script.status === 'script_generation_failed' &&
-                    script.error && (
-                      <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                        <span className="font-medium">Error:</span>{' '}
-                        {script.error}
-                      </div>
-                    )}
-                  {script.status === 'script_generation_failed' && (
-                    <Button
-                      className="mt-4"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRetryFromDetail()}
-                    >
-                      Retry Generation
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Script Modifications</CardTitle>
-              <CardDescription>
-                Edit the script to improve flow and engagement
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <textarea
-                  className="w-full h-32 px-3 py-2 text-sm border rounded-md resize-none"
-                  placeholder="Add your modifications or notes here..."
-                />
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">
-                    Reset
-                  </Button>
-                  <Button size="sm">Apply Changes</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Script Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Generation</span>
-                  <Badge variant="default">Complete</Badge>
-                </div>
-                <Progress value={100} className="h-2" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Review</span>
-                  <Badge variant="secondary">In Progress</Badge>
-                </div>
-                <Progress value={60} className="h-2" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Asset Matching</span>
-                  <Badge variant="outline">Pending</Badge>
-                </div>
-                <Progress value={0} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Source Post</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <h4 className="font-medium text-sm">{script.title}</h4>
-              <p className="text-xs text-muted-foreground">
-                r/{script.subreddit} • u/{script.author}
-              </p>
-              <div className="text-xs text-muted-foreground">
-                Post ID: {script.postId}
-              </div>
-              <Button variant="outline" size="sm" className="w-full mt-2">
-                View Original Post
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full" size="sm">
-                Regenerate Script
-              </Button>
-              <Button variant="outline" className="w-full" size="sm">
-                Find Assets
-              </Button>
-              <Button className="w-full" size="sm">
-                Proceed to Assets
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+    <div className="h-screen flex flex-col">
+      <ScriptDetailPage
+        scriptId={scriptId}
+        onSave={handleScriptSave}
+        onExport={handleContentExport}
+        autoSaveEnabled={true}
+      />
     </div>
   );
 }

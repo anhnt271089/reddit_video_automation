@@ -265,7 +265,11 @@ const scriptsRoutes: FastifyPluginCallback = (
             THEN SUBSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), 1, INSTR(SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3), '/') - 1)
             ELSE SUBSTR(rp.url, INSTR(rp.url, '/r/') + 3)
           END as subreddit,
-          gq.error_message as error
+          gq.error_message as error,
+          sv.scene_breakdown,
+          sv.titles,
+          sv.description,
+          sv.thumbnail_suggestions
         FROM script_versions sv
         LEFT JOIN reddit_posts rp ON sv.post_id = rp.id
         LEFT JOIN generation_queue gq ON gq.post_id = sv.post_id
@@ -310,6 +314,48 @@ const scriptsRoutes: FastifyPluginCallback = (
         });
       }
 
+      // Parse metadata from database JSON fields
+      let metadata = undefined;
+      if (script.scene_breakdown && script.titles && script.description) {
+        try {
+          const sceneBreakdown = JSON.parse(script.scene_breakdown);
+          const titles = JSON.parse(script.titles);
+          const thumbnailSuggestions = script.thumbnail_suggestions
+            ? JSON.parse(script.thumbnail_suggestions)
+            : [];
+
+          // Convert scene breakdown to frontend format
+          const scenes = sceneBreakdown.map((scene: any, index: number) => ({
+            id: index + 1,
+            startTime: sceneBreakdown
+              .slice(0, index)
+              .reduce(
+                (total: number, s: any) => total + (s.duration_estimate || 15),
+                0
+              ),
+            duration: scene.duration_estimate || 15,
+            content: scene.content || '',
+            visualKeywords: scene.keywords || [],
+            emotion: scene.emotional_tone || 'engaging',
+            narration: scene.content || '',
+          }));
+
+          metadata = {
+            titles,
+            selectedTitleIndex: 0,
+            description: script.description,
+            tags: [], // Extract tags from description if needed
+            scenes,
+            thumbnailConcepts: thumbnailSuggestions.map((suggestion: any) => ({
+              description: suggestion.description || suggestion,
+              textOverlay: suggestion.textOverlay || '',
+            })),
+          };
+        } catch (error) {
+          fastify.log.warn('Failed to parse script metadata:', error);
+        }
+      }
+
       reply.send({
         success: true,
         script: {
@@ -323,6 +369,7 @@ const scriptsRoutes: FastifyPluginCallback = (
           subreddit: script.subreddit || 'unknown',
           author: script.author || 'unknown',
           error: script.error || undefined,
+          metadata,
         },
       });
     } catch (error) {
