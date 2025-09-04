@@ -1,5 +1,7 @@
 # Reddit Video Automation UI/UX Specification
 
+> **Note:** For Sprint 004 Enhanced Script Detail Page specification, see [Sprint 004 Script Detail Spec](/docs/sprint-004-script-detail-spec.md)
+
 ## Introduction
 
 This document defines the user experience goals, information architecture, user flows, and visual design specifications for Reddit Video Automation Workflow's user interface. It serves as the foundation for visual design and frontend development, ensuring a cohesive and user-centered experience.
