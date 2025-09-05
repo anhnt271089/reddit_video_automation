@@ -64,6 +64,8 @@ export function ScriptDetailPage({
               subreddit: data.script.subreddit || 'unknown',
               author: data.script.author || 'unknown',
               metadata: data.script.metadata, // Real metadata from backend
+              originalContent: data.script.originalContent,
+              redditUrl: data.script.redditUrl,
             });
           } else {
             setError('Script not found');
@@ -231,7 +233,7 @@ export function ScriptDetailPage({
               </div>
               <div>
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Scene Timeline</h3>
+                  <h3 className="text-lg font-medium">Sentence Timeline</h3>
                   <Badge variant="outline" className="text-sm">
                     Total:{' '}
                     {script.metadata?.scenes.reduce(
@@ -243,6 +245,7 @@ export function ScriptDetailPage({
                 </div>
                 <SceneTimeline
                   scenes={script.metadata?.scenes || []}
+                  currentContent={script.content}
                   onSceneUpdate={handleSceneUpdate}
                 />
               </div>

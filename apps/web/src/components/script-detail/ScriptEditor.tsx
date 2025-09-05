@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { RedditOriginalContent } from './RedditOriginalContent';
 import type {
   ScriptWithMetadata,
   AutoSaveState,
@@ -21,6 +22,7 @@ export function ScriptEditor({
   const [content, setContent] = useState(script.content);
   const [isEditing, setIsEditing] = useState(false);
   const [currentSceneId, setCurrentSceneId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'script' | 'original'>('script');
   const [autoSaveState, setAutoSaveState] = useState<AutoSaveState>({
     lastSaved: null,
     isSaving: false,
@@ -140,6 +142,25 @@ export function ScriptEditor({
     }
   };
 
+  // Unified sentence splitting to match backend logic
+  const splitIntoSentences = (text: string): string[] => {
+    // Replace common abbreviations to avoid false splits
+    const processedText = text
+      .replace(/Mr\./g, 'Mr')
+      .replace(/Mrs\./g, 'Mrs')
+      .replace(/Dr\./g, 'Dr')
+      .replace(/vs\./g, 'vs')
+      .replace(/etc\./g, 'etc')
+      .replace(/i\.e\./g, 'ie')
+      .replace(/e\.g\./g, 'eg');
+
+    // Split by sentence-ending punctuation followed by space and capital letter
+    return processedText
+      .split(/(?<=[.!?])\s+(?=[A-Z])/)
+      .filter(s => s.trim().length > 0)
+      .map(s => s.trim());
+  };
+
   const formatAutoSaveStatus = () => {
     if (autoSaveState.isSaving) {
       return 'Saving...';
@@ -165,86 +186,130 @@ export function ScriptEditor({
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      {/* Script Content Card */}
-      <Card className="flex-1 flex flex-col">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg">Script Content</CardTitle>
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-muted-foreground">
-              {formatAutoSaveStatus()}
-            </span>
-            {autoSaveState.isSaving && (
-              <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-            )}
-            {autoSaveState.hasUnsavedChanges && !autoSaveState.isSaving && (
-              <Button size="sm" variant="outline" onClick={handleManualSave}>
-                Save Now
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant={isEditing ? 'default' : 'outline'}
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              {isEditing ? 'Done' : 'Edit'}
-            </Button>
-          </div>
-        </CardHeader>
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <button
+          onClick={() => setActiveTab('script')}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'script'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+          }`}
+        >
+          Script Content
+        </button>
+        <button
+          onClick={() => setActiveTab('original')}
+          className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'original'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+          }`}
+        >
+          Original Reddit Idea
+        </button>
+      </div>
 
-        <CardContent className="flex-1 flex flex-col p-4">
-          {isEditing ? (
-            <textarea
-              ref={textAreaRef}
-              value={content}
-              onChange={e => handleContentChange(e.target.value)}
-              onSelect={handleCursorMove}
-              onKeyUp={handleCursorMove}
-              onClick={handleCursorMove}
-              className="w-full flex-1 p-4 text-sm font-mono border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter your script content here..."
-              style={{ minHeight: '400px' }}
-            />
-          ) : (
-            <div className="flex-1 p-4 bg-gray-50 rounded-lg overflow-auto">
-              <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed">
-                {content || 'No script content available'}
-              </pre>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Script Statistics */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Characters:</span>
-              <span className="ml-1 font-medium">{content.length}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Words:</span>
-              <span className="ml-1 font-medium">
-                {content.split(/\s+/).filter(word => word.length > 0).length}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Est. Duration:</span>
-              <span className="ml-1 font-medium">
-                {Math.ceil(content.split(/\s+/).length / 150)} min
-              </span>
-            </div>
-            {script.metadata?.scenes && (
-              <div>
-                <span className="text-muted-foreground">Scenes:</span>
-                <span className="ml-1 font-medium">
-                  {script.metadata.scenes.length}
+      {/* Tab Content */}
+      {activeTab === 'script' ? (
+        <div className="flex flex-col h-full space-y-4">
+          {/* Script Content Card */}
+          <Card className="flex-1 flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg">Script Content</CardTitle>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-muted-foreground">
+                  {formatAutoSaveStatus()}
                 </span>
+                {autoSaveState.isSaving && (
+                  <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
+                )}
+                {autoSaveState.hasUnsavedChanges && !autoSaveState.isSaving && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleManualSave}
+                  >
+                    Save Now
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={isEditing ? 'default' : 'outline'}
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? 'Done' : 'Edit'}
+                </Button>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </CardHeader>
+
+            <CardContent className="flex-1 flex flex-col p-4">
+              {isEditing ? (
+                <textarea
+                  ref={textAreaRef}
+                  value={content}
+                  onChange={e => handleContentChange(e.target.value)}
+                  onSelect={handleCursorMove}
+                  onKeyUp={handleCursorMove}
+                  onClick={handleCursorMove}
+                  className="w-full flex-1 p-4 text-sm font-mono border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your script content here..."
+                  style={{ minHeight: '400px' }}
+                />
+              ) : (
+                <div className="flex-1 p-4 bg-gray-50 rounded-lg overflow-auto">
+                  <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                    {content || 'No script content available'}
+                  </pre>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Script Statistics */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Characters:</span>
+                  <span className="ml-1 font-medium">{content.length}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Words:</span>
+                  <span className="ml-1 font-medium">
+                    {
+                      content.split(/\s+/).filter(word => word.length > 0)
+                        .length
+                    }
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Est. Duration:</span>
+                  <span className="ml-1 font-medium">
+                    {(() => {
+                      const words = content
+                        .split(/\s+/)
+                        .filter(word => word.length > 0).length;
+                      const seconds = Math.round(words / 2.5); // 2.5 words per second
+                      const minutes = Math.floor(seconds / 60);
+                      const remainingSeconds = seconds % 60;
+                      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Sentences:</span>
+                  <span className="ml-1 font-medium">
+                    {splitIntoSentences(content).length}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <RedditOriginalContent script={script} />
+      )}
     </div>
   );
 }
