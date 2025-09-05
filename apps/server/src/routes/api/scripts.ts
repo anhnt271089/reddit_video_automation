@@ -269,7 +269,9 @@ const scriptsRoutes: FastifyPluginCallback = (
           sv.scene_breakdown,
           sv.titles,
           sv.description,
-          sv.thumbnail_suggestions
+          sv.thumbnail_suggestions,
+          rp.content as originalContent,
+          rp.url as redditUrl
         FROM script_versions sv
         LEFT JOIN reddit_posts rp ON sv.post_id = rp.id
         LEFT JOIN generation_queue gq ON gq.post_id = sv.post_id
@@ -303,6 +305,8 @@ const scriptsRoutes: FastifyPluginCallback = (
             author: post.author,
             subreddit: 'unknown',
             error: failedGeneration?.error_message,
+            originalContent: post.content,
+            redditUrl: post.url,
           };
         }
       }
@@ -370,6 +374,8 @@ const scriptsRoutes: FastifyPluginCallback = (
           author: script.author || 'unknown',
           error: script.error || undefined,
           metadata,
+          originalContent: script.originalContent,
+          redditUrl: script.redditUrl,
         },
       });
     } catch (error) {

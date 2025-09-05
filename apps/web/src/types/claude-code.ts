@@ -45,6 +45,8 @@ export interface ScriptWithMetadata {
   author: string;
   error?: string;
   metadata?: ClaudeCodeMetadata;
+  originalContent?: string;
+  redditUrl?: string;
 }
 
 export interface AutoSaveState {
