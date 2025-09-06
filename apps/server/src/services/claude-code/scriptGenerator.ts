@@ -2,6 +2,10 @@ import { PromptTemplates } from './prompts';
 import { ContentProcessor } from './contentProcessor';
 import { ThumbnailGenerator } from './thumbnailGenerator';
 import {
+  YouTubeTitleGenerator,
+  TitleGenerationAnalysis,
+} from './titleGenerator';
+import {
   ScriptGenerationRequest,
   GeneratedScript,
   ScriptStyle,
@@ -1441,19 +1445,42 @@ Remember: ${analysis.actionableInsights[2] || 'Progress beats perfection, and co
 
   /**
    * ADAPTIVE METADATA GENERATION
-   * Creates optimized metadata based on content analysis
+   * Creates optimized metadata based on content analysis using advanced title generation
    */
   private async generateAdaptiveMetadata(
     analysis: any,
     style: string
   ): Promise<any> {
-    const titleTemplates = [
-      `The ${analysis.universalThemes[0]} Truth That Changes Everything`,
-      `Why Everyone Gets ${analysis.universalThemes[0]} Wrong (And How to Get It Right)`,
-      `The Psychology Behind ${analysis.universalThemes[0]} That No One Talks About`,
-      `How ${analysis.coreTransformation.substring(0, 50)}... Transformed Everything`,
-      `The ${analysis.universalThemes[0]} Method That Actually Works`,
-    ];
+    // Convert analysis to TitleGenerationAnalysis format
+    const titleAnalysis: TitleGenerationAnalysis = {
+      coreTransformation:
+        analysis.coreTransformation || 'Personal transformation',
+      universalThemes: analysis.universalThemes || ['personal growth'],
+      hookElements: analysis.hookElements || ['relatable struggle'],
+      emotionalJourney: analysis.emotionalJourney || [
+        'curiosity',
+        'inspiration',
+      ],
+      audiencePainPoints: analysis.audiencePainPoints || ['lack of progress'],
+      psychologicalTriggers: analysis.psychologicalTriggers || ['curiosity'],
+      successOutcomes: analysis.successOutcomes || ['improved life'],
+      mainProblems: analysis.mainProblems || ['general challenges'],
+      solutionsProvided: analysis.solutionsProvided || ['systematic approach'],
+      actionableInsights: analysis.actionableInsights || [
+        'consistent action leads to results',
+      ],
+    };
+
+    // Generate optimized titles using the advanced title generator
+    const optimizedTitles =
+      YouTubeTitleGenerator.generateOptimizedTitles(titleAnalysis);
+
+    // Extract just the title strings for backward compatibility
+    const titleStrings = optimizedTitles.map(t => t.title);
+
+    // Get performance predictions for the top title
+    const topTitle = optimizedTitles[0];
+    const performance = YouTubeTitleGenerator.predictPerformance(topTitle);
 
     const description = `This powerful story reveals the hidden psychology behind ${analysis.universalThemes.join(', ')}.
 
@@ -1472,7 +1499,7 @@ This isn't just another motivational story—it's a blueprint for ${analysis.cor
 #${analysis.universalThemes.join(' #').replace(/\s+/g, '')} #Psychology #Transformation #PersonalGrowth`;
 
     return {
-      titles: titleTemplates,
+      titles: titleStrings,
       selectedTitleIndex: 0,
       description: description,
       thumbnailConcepts: await this.generateEnhancedThumbnails(analysis, style),
@@ -1489,6 +1516,22 @@ This isn't just another motivational story—it's a blueprint for ${analysis.cor
         `Drop a 🧠 if this changed your perspective on ${analysis.universalThemes[0]}`,
         'Share your own transformation moment below',
       ],
+      // Enhanced title metadata for analytics and optimization
+      titleAnalytics: {
+        optimizedTitles: optimizedTitles,
+        performance: performance,
+        selectedTitle: {
+          title: topTitle.title,
+          characterCount: topTitle.characterCount,
+          seoScore: topTitle.seoScore,
+          viralScore: topTitle.viralScore,
+          psychologicalScore: topTitle.psychologicalScore,
+          expectedCTR: performance.estimatedCTR,
+          keywords: topTitle.keywords,
+          psychologicalTrigger: topTitle.template.psychologicalTrigger,
+          viralPotential: performance.viralPotential,
+        },
+      },
     };
   }
 
