@@ -1,5 +1,6 @@
 import { PromptTemplates } from './prompts';
 import { ContentProcessor } from './contentProcessor';
+import { ThumbnailGenerator } from './thumbnailGenerator';
 import {
   ScriptGenerationRequest,
   GeneratedScript,
@@ -1474,19 +1475,7 @@ This isn't just another motivational story—it's a blueprint for ${analysis.cor
       titles: titleTemplates,
       selectedTitleIndex: 0,
       description: description,
-      thumbnailConcepts: [
-        {
-          description: `Split screen showing transformation in ${analysis.universalThemes[0]}`,
-          visualElements: [
-            analysis.universalThemes[0],
-            'transformation',
-            'breakthrough',
-          ],
-          textOverlay: 'THIS CHANGES EVERYTHING',
-          colorScheme: 'High contrast with psychological impact colors',
-          psychologicalAppeal: `Curiosity about ${analysis.universalThemes[0]} transformation`,
-        },
-      ],
+      thumbnailConcepts: await this.generateEnhancedThumbnails(analysis, style),
       tags: [
         ...analysis.universalThemes,
         'psychology',
@@ -2120,5 +2109,233 @@ ${themeHashtags} #reddit #transformation #inspiration #motivation #success #stor
 
   private generateFullScript(hook: string, scenes: any[]): string {
     return `${hook} ${scenes.map(scene => scene.narration).join(' ')} Remember, if they can do it, so can you. What's stopping you from starting your own transformation today?`;
+  }
+
+  /**
+   * ENHANCED THUMBNAIL GENERATION
+   * Uses the advanced thumbnail system with detailed specifications
+   */
+  private async generateEnhancedThumbnails(
+    analysis: any,
+    style: string
+  ): Promise<any[]> {
+    try {
+      // Map analysis data to thumbnail generator format
+      const storyAnalysis = {
+        primaryTheme: this.mapToThumbnailTheme(analysis.universalThemes[0]),
+        transformationType: this.mapToTransformationType(
+          analysis.coreTransformation
+        ),
+        emotionalTone: this.mapToEmotionalTone(analysis.emotionalJourney),
+        urgencyLevel: this.determineUrgencyLevel(
+          analysis.psychologicalTriggers
+        ),
+        targetPsychology: analysis.psychologicalTriggers || [],
+        keyElements: analysis.hookElements || [],
+        characterProfile: {
+          suggestedAge: 30, // Default for 20-40 demographic
+          gender: 'any',
+          profession: 'relatable-professional',
+          emotionalJourney: analysis.emotionalJourney || [
+            'curious',
+            'enlightened',
+          ],
+          styleProfile: 'authentic-relatable',
+        },
+      };
+
+      // Generate enhanced thumbnails using the thumbnail generator
+      const thumbnails = await ThumbnailGenerator.generateThumbnails(
+        `${analysis.coreTransformation}`,
+        `Theme: ${analysis.universalThemes.join(', ')}. Problems: ${analysis.mainProblems.join(', ')}.`,
+        style as any
+      );
+
+      // Convert to format expected by the frontend
+      return thumbnails.concepts.map((template: any) => ({
+        description: template.concept.description,
+        visualElements: template.concept.visualElements,
+        textOverlay:
+          template.concept.textStrategy?.primary ||
+          template.textSpecifications?.primary?.content,
+        colorScheme:
+          template.colorPalette?.primary?.hex ||
+          template.concept.colorScheme ||
+          'High contrast with psychological impact',
+        composition: template.concept.composition,
+        characters: template.concept.characters,
+        objects: template.concept.objects,
+        textStrategy: template.concept.textStrategy,
+        psychologicalTriggers: template.concept.psychologicalTriggers,
+        targetEmotion: template.concept.targetEmotion,
+        ctrOptimization: template.concept.ctrOptimization,
+      }));
+    } catch (error) {
+      console.error(
+        'Enhanced thumbnail generation failed, using fallback:',
+        error
+      );
+
+      // Fallback to enhanced but simpler thumbnails
+      return [
+        {
+          description: `Transformation-focused thumbnail showing ${analysis.universalThemes[0] || 'personal growth'}`,
+          visualElements: [
+            analysis.universalThemes[0] || 'transformation',
+            'breakthrough',
+            'success',
+          ],
+          textOverlay: 'THIS CHANGES EVERYTHING',
+          colorScheme: 'Energy orange (#FF6B35) with trust blue (#1B365D)',
+          composition: {
+            layout: 'transformation-triangle',
+            visualFlow: 'Left to right transformation progression',
+            focalPoint: 'Central character transformation moment',
+          },
+          characters: {
+            count: 1,
+            demographics: '25-35 professional, highly relatable',
+            expressions: ['realization', 'confidence', 'enlightened'],
+            positioning: 'Center-weighted at golden ratio position',
+            clothing: 'Smart casual, approachable professional',
+          },
+          objects: {
+            symbolic: ['lightbulb', 'key', 'open door'],
+            contextual: ['modern workspace', 'growth charts'],
+            emotional: ['upward arrows', 'positive symbols'],
+          },
+          textStrategy: {
+            primary: 'THIS CHANGES EVERYTHING',
+            font: 'Bold impact font',
+            placement: 'Top third for immediate impact',
+            color: 'White with blue stroke',
+          },
+          psychologicalTriggers: analysis.psychologicalTriggers || [
+            'curiosity',
+            'hope',
+          ],
+          targetEmotion: 'curiosity',
+          ctrOptimization: {
+            contrastLevel: 'high',
+            emotionalIntensity: 'moderate',
+            clarityScore: 8,
+          },
+        },
+        {
+          description: `Urgency-driven thumbnail highlighting immediate relevance`,
+          visualElements: ['urgency', 'revelation', 'attention'],
+          textOverlay: "WHAT THEY DON'T TELL YOU",
+          colorScheme: 'Dramatic red (#DC143C) with attention yellow (#FFD700)',
+          composition: {
+            layout: 'central-focus',
+            visualFlow: 'Center-out radiating attention',
+            focalPoint: 'Intense character expression',
+          },
+          characters: {
+            count: 1,
+            demographics: '28-35, authentic surprise/concern',
+            expressions: ['shocked', 'concerned', 'intense focus'],
+            positioning: 'Center at 50% x, 40% y',
+            clothing: 'Relatable, authentic styling',
+          },
+          objects: {
+            symbolic: ['warning triangle', 'clock', 'spotlight effect'],
+            contextual: ['dramatic lighting', 'attention elements'],
+            emotional: ['urgency indicators', 'reveal symbols'],
+          },
+          textStrategy: {
+            primary: "WHAT THEY DON'T TELL YOU",
+            font: 'Impact black weight',
+            placement: 'Top area for immediate urgency',
+            color: 'Yellow with red stroke',
+          },
+          psychologicalTriggers: [
+            'urgency',
+            'exclusivity',
+            'fear-of-missing-out',
+          ],
+          targetEmotion: 'urgency',
+          ctrOptimization: {
+            contrastLevel: 'high',
+            emotionalIntensity: 'intense',
+            clarityScore: 9,
+          },
+        },
+      ];
+    }
+  }
+
+  /**
+   * Helper methods to map analysis data to thumbnail system format
+   */
+  private mapToThumbnailTheme(theme: string): any {
+    const themeMap = {
+      'personal growth': 'personal-growth',
+      career: 'career',
+      relationships: 'relationships',
+      success: 'personal-growth',
+      transformation: 'personal-growth',
+      mindset: 'personal-growth',
+    };
+    return themeMap[theme.toLowerCase()] || 'personal-growth';
+  }
+
+  private mapToTransformationType(transformation: string): any {
+    if (
+      transformation.toLowerCase().includes('dramatic') ||
+      transformation.toLowerCase().includes('complete')
+    ) {
+      return 'dramatic-change';
+    }
+    if (
+      transformation.toLowerCase().includes('realization') ||
+      transformation.toLowerCase().includes('insight')
+    ) {
+      return 'revelation';
+    }
+    if (
+      transformation.toLowerCase().includes('obstacle') ||
+      transformation.toLowerCase().includes('challenge')
+    ) {
+      return 'overcoming-obstacle';
+    }
+    return 'gradual-improvement';
+  }
+
+  private mapToEmotionalTone(emotions: string[]): any {
+    if (!emotions || emotions.length === 0) {
+      return 'inspiring';
+    }
+
+    const emotionStr = emotions.join(' ').toLowerCase();
+    if (emotionStr.includes('shock') || emotionStr.includes('surprise')) {
+      return 'shocking';
+    }
+    if (emotionStr.includes('drama') || emotionStr.includes('intense')) {
+      return 'dramatic';
+    }
+    if (emotionStr.includes('learn') || emotionStr.includes('understand')) {
+      return 'educational';
+    }
+    return 'inspiring';
+  }
+
+  private determineUrgencyLevel(triggers: string[]): any {
+    if (!triggers || triggers.length === 0) {
+      return 'medium';
+    }
+
+    const triggerStr = triggers.join(' ').toLowerCase();
+    if (
+      triggerStr.includes('fear') ||
+      triggerStr.includes('urgent') ||
+      triggerStr.includes('immediate')
+    ) {
+      return 'high';
+    }
+    if (triggerStr.includes('curiosity') || triggerStr.includes('interest')) {
+      return 'low';
+    }
+    return 'medium';
   }
 }

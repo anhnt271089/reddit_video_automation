@@ -45,6 +45,18 @@ export class ScriptVersionManager {
       text_overlay: concept.textOverlay || '',
       emotional_style: concept.colorScheme,
       visual_theme: concept.description,
+      // Preserve all enhanced fields
+      description: concept.description,
+      visualElements: concept.visualElements,
+      textOverlay: concept.textOverlay,
+      colorScheme: concept.colorScheme,
+      composition: concept.composition,
+      characters: concept.characters,
+      objects: concept.objects,
+      textStrategy: concept.textStrategy,
+      psychologicalTriggers: concept.psychologicalTriggers,
+      targetEmotion: concept.targetEmotion,
+      ctrOptimization: concept.ctrOptimization,
     }));
   }
 

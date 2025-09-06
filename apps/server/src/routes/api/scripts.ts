@@ -352,7 +352,16 @@ const scriptsRoutes: FastifyPluginCallback = (
             scenes,
             thumbnailConcepts: thumbnailSuggestions.map((suggestion: any) => ({
               description: suggestion.description || suggestion,
+              visualElements: suggestion.visualElements,
               textOverlay: suggestion.textOverlay || '',
+              colorScheme: suggestion.colorScheme,
+              composition: suggestion.composition,
+              characters: suggestion.characters,
+              objects: suggestion.objects,
+              textStrategy: suggestion.textStrategy,
+              psychologicalTriggers: suggestion.psychologicalTriggers,
+              targetEmotion: suggestion.targetEmotion,
+              ctrOptimization: suggestion.ctrOptimization,
             })),
           };
         } catch (error) {

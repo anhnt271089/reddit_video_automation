@@ -1,4 +1,5 @@
 import { ScriptStyle } from './types';
+import { ThumbnailTemplateFactory } from './thumbnailTemplates';
 
 export class PromptTemplates {
   /**
@@ -139,6 +140,77 @@ Required Scenes: ${sceneCount}
    - Connect back to the opening hook for narrative closure
    - End with inspiration that motivates action, not just feeling
 
+**ENHANCED THUMBNAIL OPTIMIZATION REQUIREMENTS:**
+
+Create 2 distinct thumbnail concepts using our advanced template system that maximizes CTR for the 20-40 demographic:
+
+**CONCEPT 1: TRANSFORMATION-FOCUSED TEMPLATE**
+Follow the detailed transformation template specifications including:
+- **Character Demographics**: Age 28-35, authentic professional appearance showing emotional progression from challenge to empowerment
+- **Positioning**: Three-point transformation arc (struggle → transition → success) using golden ratio placement (38.2% horizontal, 35% vertical for face)
+- **Expression Sequence**: Determined → hopeful → empowered → relieved, with moderate intensity maintaining authenticity
+- **Clothing Strategy**: Business casual showing subtle upgrade progression (slightly rumpled initially → more polished and confident)
+- **Color Palette**: Warm success gradient using energy orange (#FF6B35) to gold (#FFD700) with trust blue (#1B365D) stability
+- **Symbolic Objects**: 
+  * Golden key at 70% x, 25% y (8% size) - "opportunity unlocked"
+  * Open door with light at 75% x, 15% y (15% size) - "new possibilities"
+  * Progress arrow at 15% x, 80% y (20% size) - pointing toward transformation
+- **Text Specifications**: 
+  * Font: Montserrat extra-bold, 64px
+  * Placement: Centered at 85% y (bottom area)
+  * Color: White with trust blue (#1B365D) stroke and shadow
+  * Content: Dynamic based on story (e.g., "HOW I CHANGED MY LIFE")
+
+**CONCEPT 2: URGENCY/CURIOSITY-DRIVEN TEMPLATE**  
+Follow the detailed urgency template specifications including:
+- **Character Demographics**: Age 28-35, highly relatable with authentic surprise/concern, emphasizing genuine reaction over polish
+- **Positioning**: Center-focused at 50% x, 40% y with 30% face size for maximum impact
+- **Expression Intensity**: Shocked, concerned, intensely focused, or realizing - with "intense" authenticity level
+- **Body Language**: Slight forward lean, alert posture, authentic reaction (hand to face, revelation gesture)
+- **Color Palette**: High-urgency warning using dramatic red (#DC143C) with attention yellow (#FFD700) and stark black contrast
+- **Urgency Objects**:
+  * Warning triangle at 15% x, 15% y (10% size) - "immediate attention required"  
+  * Clock face at 75% x, 70% y (12% size) - "time pressure/deadline"
+  * Spotlight effect at 50% x, 40% y (60% size) - radial light from character
+- **Text Specifications**:
+  * Font: Impact black weight, 58px
+  * Placement: Top area (15% y) for immediate urgency impact
+  * Color: Attention yellow (#FFD700) with dramatic red (#DC143C) stroke
+  * Background: Semi-transparent black (0.7 opacity, 8px radius)
+  * Content: Question/reveal based on story (e.g., "WHAT THEY DON'T TELL YOU")
+
+**ADVANCED DESIGN SPECIFICATIONS:**
+
+1. **Technical Requirements**:
+   - Dimensions: 1280x720 (16:9 aspect ratio)
+   - Mobile optimization: 24px minimum text at 320px width
+   - Contrast ratio: 4.5:1 minimum for accessibility
+   - File format: JPG at 90% quality, max 2MB
+
+2. **Visual Placement Guidelines**:
+   - Use golden ratio (38.2%) for transformation layouts
+   - Use center-weighted (50%) for urgency layouts  
+   - Maintain clear visual hierarchy: character face → objects → text → supporting elements
+   - Ensure eye flow completes in under 2 seconds
+
+3. **Character Specifications by Demographic**:
+   - **Age Range**: 25-40 for optimal relatability with target audience
+   - **Authenticity Level**: Genuine expressions over polished presentations
+   - **Diversity Representation**: Include varied ethnicities while maintaining relatability
+   - **Professional Styling**: Business casual emphasizing approachability
+
+4. **Object Placement Psychology**:
+   - **Symbolic Objects**: Metaphorical meaning supporting story theme
+   - **Contextual Objects**: Story-specific props enhancing narrative
+   - **Emotional Objects**: Trigger specific psychological responses
+   - **Size Guidelines**: 8-20% of frame for supporting objects, never overpowering character
+
+5. **Color Psychology Implementation**:
+   - **Transformation Colors**: Oranges/golds (energy, success) + blues (trust, stability)
+   - **Urgency Colors**: Reds (urgency, importance) + yellows (attention, warning) + blacks (drama, contrast)
+   - **Background Gradients**: Diagonal upward for transformation, radial center for urgency
+   - **Contrast Optimization**: High contrast (4.5:1+) for mobile readability
+
 **REQUIRED JSON OUTPUT:**
 {
   "script": "Complete flowing narration optimized for ${targetDuration} seconds",
@@ -164,11 +236,89 @@ Required Scenes: ${sceneCount}
     "description": "SEO-optimized 200-400 word description that:\\n- Hooks readers with the story's transformation\\n- Includes key life lessons and takeaways\\n- Uses relevant hashtags for motivation/self-improvement niche\\n- Encourages engagement with thought-provoking questions\\n- Includes subtle call-to-action for subscription",
     "thumbnailConcepts": [
       {
-        "description": "Emotionally compelling thumbnail concept",
-        "visualElements": ["contrasting emotions", "transformation visual", "relatable character"],
-        "textOverlay": "POWERFUL EMOTIONAL STATEMENT",
-        "colorScheme": "High contrast colors that evoke emotion and curiosity",
-        "psychologicalAppeal": "What psychological trigger makes viewers click"
+        "description": "TRANSFORMATION-FOCUSED: Advanced template featuring three-point transformation arc with golden ratio positioning, authentic character progression, and psychology-driven object placement designed to trigger transformation hope and control desire",
+        "visualElements": ["golden key (opportunity unlocked)", "open door with light (new possibilities)", "progress arrow (pointing toward transformation)", "three-point character progression", "diagonal upward gradient background"],
+        "textOverlay": "Dynamic transformation text based on story context",
+        "colorScheme": "Warm success gradient: Energy orange (#FF6B35) to gold (#FFD700) with trust blue (#1B365D) stability and high contrast white text",
+        "composition": {
+          "layout": "transformation-triangle",
+          "visualFlow": "Character face (38.2%, 35%) → transformation objects → progress indicators → empowering text, completing narrative in under 2 seconds",
+          "focalPoint": "Character face during breakthrough moment positioned at golden ratio intersection for maximum psychological impact"
+        },
+        "characters": {
+          "count": 1,
+          "demographics": "Age 28-35, authentic professional appearance with emotional journey progression from challenge to empowerment, diverse representation maintaining relatability",
+          "expressions": ["determined", "hopeful", "empowered", "relieved"],
+          "positioning": "Three-point transformation arc: struggle pose → transition moment → success pose, face at golden ratio (38.2% x, 35% y, 25% size, 5° angle)",
+          "clothing": "Business casual showing subtle upgrade: initial state slightly rumpled → final state more polished and confident, navy blue/white palette"
+        },
+        "objects": {
+          "symbolic": [
+            {"object": "golden key", "placement": {"x": 70, "y": 25, "size": 8}, "meaning": "opportunity unlocked", "prominence": "supporting"},
+            {"object": "open door with light", "placement": {"x": 75, "y": 15, "size": 15}, "meaning": "new possibilities", "prominence": "supporting"},
+            {"object": "upward arrow", "placement": {"x": 15, "y": 80, "size": 20}, "meaning": "growth/progress", "prominence": "supporting"}
+          ],
+          "contextual": ["Professional success indicators", "Life improvement visual elements", "Career advancement symbols"],
+          "emotional": [
+            {"object": "sunrise lighting", "placement": {"x": 60, "y": 10, "size": 30}, "trigger": "new beginning hope", "effect": "soft glow emanating outward"}
+          ]
+        },
+        "textStrategy": {
+          "primary": "HOW I CHANGED MY LIFE",
+          "font": "Montserrat extra-bold, 64px, 1.5 letter-spacing, 1.2 line-height",
+          "placement": "Centered at 85% y (bottom area), max 80% width",
+          "color": "White (#FFFFFF) with trust blue (#1B365D) stroke (3px) and black shadow (2x, 2y, 4blur)",
+          "background": null
+        },
+        "psychologicalTriggers": ["transformation_hope", "control_desire", "aspiration", "self_efficacy"],
+        "targetEmotion": "hope",
+        "ctrOptimization": {
+          "contrastLevel": "high",
+          "emotionalIntensity": "moderate",
+          "clarityScore": 9
+        }
+      },
+      {
+        "description": "URGENCY/CURIOSITY-DRIVEN: Advanced template featuring center-weighted character with authentic intense expression, strategic urgency indicators, and high-contrast color psychology designed to trigger time urgency and status anxiety",
+        "visualElements": ["warning triangle (immediate attention)", "clock face (time pressure)", "spotlight effect (dramatic focus)", "authentic shock expression", "high-contrast background"],
+        "textOverlay": "Question/reveal text creating curiosity gap and immediate relevance",
+        "colorScheme": "High-urgency warning palette: Dramatic red (#DC143C) with attention yellow (#FFD700) and stark black contrast creating maximum visual tension",
+        "composition": {
+          "layout": "central-focus",
+          "visualFlow": "Immediate center focus (50%, 40%) → radiating urgency elements → text revelation → warning indicators, creating tunnel vision effect in under 2 seconds",
+          "focalPoint": "Character face with intense authentic expression, dead center with dramatic spotlight effect for maximum psychological impact"
+        },
+        "characters": {
+          "count": 1,
+          "demographics": "Age 28-35, highly relatable appearance with authentic surprise/concern, diverse representation emphasizing genuine reaction over polished presentation",
+          "expressions": ["shocked", "concerned", "intensely focused", "realizing", "alarmed"],
+          "positioning": "Center-focused at 50% x, 40% y with 30% face size, slight forward lean indicating urgency, direct eye contact with viewer",
+          "clothing": "Casual professional emphasizing relatability - slightly imperfect to suggest authentic reaction, muted colors not competing with urgency elements"
+        },
+        "objects": {
+          "symbolic": [
+            {"object": "warning triangle", "placement": {"x": 15, "y": 15, "size": 10}, "meaning": "important information requiring immediate attention", "prominence": "supporting"},
+            {"object": "clock face", "placement": {"x": 75, "y": 70, "size": 12}, "meaning": "time pressure and deadline urgency", "prominence": "supporting"}
+          ],
+          "contextual": ["Story-specific shocking elements", "Hidden truth revelation indicators", "Before it's too late visual metaphors"],
+          "emotional": [
+            {"object": "spotlight effect", "placement": {"x": 50, "y": 40, "size": 60}, "trigger": "focus attention and create drama", "effect": "radial light emanating from character"}
+          ]
+        },
+        "textStrategy": {
+          "primary": "WHAT THEY DON'T TELL YOU",
+          "font": "Impact black weight, 58px, 1.0 letter-spacing, 1.1 line-height",
+          "placement": "Top area (15% y) for immediate urgency impact, centered, max 85% width",
+          "color": "Attention yellow (#FFD700) with dramatic red (#DC143C) stroke (4px) and black shadow (3x, 3y, 6blur)",
+          "background": {"color": "#1A1A1A", "opacity": 0.7, "borderRadius": 8}
+        },
+        "psychologicalTriggers": ["time_urgency", "status_anxiety", "fear_of_missing_out", "curiosity_gap"],
+        "targetEmotion": "curiosity",
+        "ctrOptimization": {
+          "contrastLevel": "high",
+          "emotionalIntensity": "intense",
+          "clarityScore": 10
+        }
       }
     ],
     "tags": ["motivation", "life-lessons", "personal-growth", "mindset", "success", "self-improvement"],

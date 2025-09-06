@@ -2,11 +2,10 @@ import {
   RedditPost,
   ProcessedContent,
   GeneratedScript,
-  ValidationResult
+  ValidationResult,
 } from './types';
 
 export class ContentProcessor {
-  
   preprocessPost(post: RedditPost): ProcessedContent {
     return {
       title: this.sanitizeTitle(post.title),
@@ -17,8 +16,8 @@ export class ContentProcessor {
         score: post.score,
         awards: post.awards || [],
         wordCount: this.countWords(post.content),
-        readingTime: this.calculateReadingTime(post.content)
-      }
+        readingTime: this.calculateReadingTime(post.content),
+      },
     };
   }
 
@@ -45,11 +44,16 @@ export class ContentProcessor {
 
     // Validate scene breakdown
     if (script.sceneBreakdown) {
-      const totalDuration = script.sceneBreakdown.reduce((sum, scene) => sum + scene.duration, 0);
+      const totalDuration = script.sceneBreakdown.reduce(
+        (sum, scene) => sum + scene.duration,
+        0
+      );
       const targetDuration = script.generationParams?.targetDuration || 60;
-      
+
       if (Math.abs(totalDuration - targetDuration) > 10) {
-        warnings.push(`Duration mismatch: ${totalDuration}s vs target ${targetDuration}s`);
+        warnings.push(
+          `Duration mismatch: ${totalDuration}s vs target ${targetDuration}s`
+        );
         score -= 10;
       }
 
@@ -64,8 +68,10 @@ export class ContentProcessor {
           score -= 5;
         }
 
-        if (scene.duration <= 0 || scene.duration > 60) {
-          errors.push(`Scene ${index + 1} has invalid duration: ${scene.duration}s`);
+        if (scene.duration <= 0 || scene.duration > 120) {
+          errors.push(
+            `Scene ${index + 1} has invalid duration: ${scene.duration}s`
+          );
           score -= 10;
         }
       });
@@ -78,10 +84,14 @@ export class ContentProcessor {
           errors.push(`Title ${index + 1} is empty`);
           score -= 5;
         } else if (title.length > 100) {
-          warnings.push(`Title ${index + 1} is too long (${title.length} chars)`);
+          warnings.push(
+            `Title ${index + 1} is too long (${title.length} chars)`
+          );
           score -= 3;
         } else if (title.length < 10) {
-          warnings.push(`Title ${index + 1} is too short (${title.length} chars)`);
+          warnings.push(
+            `Title ${index + 1} is too short (${title.length} chars)`
+          );
           score -= 3;
         }
       });
@@ -106,7 +116,7 @@ export class ContentProcessor {
       isValid: errors.length === 0,
       errors,
       warnings,
-      score: Math.max(0, score)
+      score: Math.max(0, score),
     };
   }
 
@@ -121,7 +131,7 @@ export class ContentProcessor {
 
   private extractMainContent(post: RedditPost): string {
     let content = post.content || '';
-    
+
     // Remove common Reddit artifacts
     content = content
       .replace(/^Edit:.*$/gm, '') // Remove edit lines
@@ -153,25 +163,26 @@ export class ContentProcessor {
   // Content quality scoring
   scoreContent(post: RedditPost): number {
     let score = 0;
-    
+
     // Engagement metrics (40% of score)
     const engagementScore = Math.min(post.score / 100, 1) * 40;
     score += engagementScore;
-    
+
     // Content length (20% of score)
     const wordCount = this.countWords(post.content);
-    const lengthScore = wordCount > 50 && wordCount < 500 ? 20 : 
-                       wordCount > 25 ? 15 : 10;
+    const lengthScore =
+      wordCount > 50 && wordCount < 500 ? 20 : wordCount > 25 ? 15 : 10;
     score += lengthScore;
-    
+
     // Title quality (20% of score)
-    const titleScore = post.title.length > 10 && post.title.length < 150 ? 20 : 15;
+    const titleScore =
+      post.title.length > 10 && post.title.length < 150 ? 20 : 15;
     score += titleScore;
-    
+
     // Comments engagement (20% of score)
     const commentScore = Math.min(post.comments / 20, 1) * 20;
     score += commentScore;
-    
+
     return Math.round(score);
   }
 
@@ -179,15 +190,31 @@ export class ContentProcessor {
   extractThemes(content: string): string[] {
     const themes: string[] = [];
     const commonThemes = [
-      'success', 'failure', 'motivation', 'relationship', 'work', 'family',
-      'money', 'health', 'education', 'travel', 'technology', 'funny',
-      'life lesson', 'achievement', 'challenge', 'transformation'
+      'success',
+      'failure',
+      'motivation',
+      'relationship',
+      'work',
+      'family',
+      'money',
+      'health',
+      'education',
+      'travel',
+      'technology',
+      'funny',
+      'life lesson',
+      'achievement',
+      'challenge',
+      'transformation',
     ];
 
     const lowerContent = content.toLowerCase();
-    
+
     commonThemes.forEach(theme => {
-      if (lowerContent.includes(theme) || lowerContent.includes(theme.replace(' ', ''))) {
+      if (
+        lowerContent.includes(theme) ||
+        lowerContent.includes(theme.replace(' ', ''))
+      ) {
         themes.push(theme);
       }
     });
@@ -199,10 +226,19 @@ export class ContentProcessor {
   detectContentFlags(post: RedditPost): string[] {
     const flags: string[] = [];
     const content = (post.title + ' ' + post.content).toLowerCase();
-    
+
     const sensitiveTopics = [
-      'suicide', 'depression', 'abuse', 'violence', 'drugs', 'alcohol',
-      'politics', 'religion', 'nsfw', 'death', 'medical'
+      'suicide',
+      'depression',
+      'abuse',
+      'violence',
+      'drugs',
+      'alcohol',
+      'politics',
+      'religion',
+      'nsfw',
+      'death',
+      'medical',
     ];
 
     sensitiveTopics.forEach(topic => {
@@ -212,7 +248,8 @@ export class ContentProcessor {
     });
 
     // Check for excessive profanity
-    const profanityCount = (content.match(/\b(fuck|shit|damn|ass)\b/g) || []).length;
+    const profanityCount = (content.match(/\b(fuck|shit|damn|ass)\b/g) || [])
+      .length;
     if (profanityCount > 3) {
       flags.push('profanity');
     }
