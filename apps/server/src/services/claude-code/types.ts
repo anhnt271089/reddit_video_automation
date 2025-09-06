@@ -62,12 +62,44 @@ export interface ThumbnailConcept {
   };
 }
 
+export interface YouTubeDescription {
+  hook: string;
+  mainContent: string;
+  keyInsights: string[];
+  timestamps: {
+    chapters: {
+      time: string;
+      title: string;
+      keywords: string[];
+      engagementValue: number;
+    }[];
+    keyMoments: {
+      time: string;
+      description: string;
+      highlightType: 'hook' | 'revelation' | 'action' | 'conclusion';
+    }[];
+  };
+  callsToAction: string[];
+  hashtags: string[];
+  socialProof: string[];
+  crossPromotion: string[];
+  fullDescription: string;
+  seoScore: number;
+  engagementScore: number;
+  algorithmOptimization: {
+    watchTimeHooks: string[];
+    retentionElements: string[];
+    clickThroughOptimization: string[];
+  };
+}
+
 export interface GeneratedScript {
   scriptContent: string;
   sceneBreakdown: SceneData[];
   durationEstimate: number;
   titles: string[]; // 5 variations
   description: string;
+  optimizedDescription?: YouTubeDescription; // Enhanced description
   thumbnailConcepts: ThumbnailConcept[];
   keywords: string[];
   generationParams: {

@@ -116,15 +116,15 @@ export function MetadataPanel({
           </Button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex space-x-1 mt-4">
+        {/* Tab Navigation - Mobile Responsive */}
+        <div className="flex space-x-1 mt-4 overflow-x-auto scrollbar-hide">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-                'flex items-center space-x-1',
+                'px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors',
+                'flex items-center space-x-1 flex-shrink-0 min-w-0',
                 {
                   'bg-blue-100 text-blue-700': activeTab === tab.id,
                   'text-gray-600 hover:text-gray-900 hover:bg-gray-100':
@@ -132,9 +132,12 @@ export function MetadataPanel({
                 }
               )}
             >
-              <span>{tab.label}</span>
+              <span className="truncate">{tab.label}</span>
               {tab.count !== undefined && (
-                <Badge variant="outline" className="h-4 text-xs ml-1">
+                <Badge
+                  variant="outline"
+                  className="h-3 sm:h-4 text-xs ml-1 flex-shrink-0"
+                >
                   {tab.count}
                 </Badge>
               )}

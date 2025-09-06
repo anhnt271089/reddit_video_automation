@@ -22,6 +22,17 @@ interface GenerateScriptRequest {
   style?: ScriptStyle;
   sceneCount?: number;
   priority?: number;
+  generateOptimizedDescription?: boolean;
+}
+
+interface GenerateEnhancedDescriptionRequest {
+  postId: string;
+  targetAudience?: {
+    demographics: string;
+    interests: string[];
+    painPoints: string[];
+    motivations: string[];
+  };
 }
 
 interface GetScriptParams {
@@ -148,6 +159,7 @@ const scriptsRoutes: FastifyPluginCallback = (
         sceneCount,
         priority = 0,
         userId,
+        generateOptimizedDescription = false,
       } = request.body;
 
       // Validate post exists
@@ -771,6 +783,191 @@ const scriptsRoutes: FastifyPluginCallback = (
           error instanceof Error
             ? error.message
             : 'Failed to fetch pipeline history',
+      });
+    }
+  });
+
+  // Generate enhanced YouTube description for existing script
+  fastify.post<{
+    Body: GenerateEnhancedDescriptionRequest;
+  }>('/description/generate', async (request, reply) => {
+    try {
+      const { postId, targetAudience } = request.body;
+
+      // Validate post exists
+      const post = db.get<any>('SELECT * FROM reddit_posts WHERE id = ?', [
+        postId,
+      ]);
+
+      if (!post) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Reddit post not found',
+        });
+      }
+
+      // Get existing script
+      const existingScript = db.get<any>(
+        'SELECT * FROM generated_scripts WHERE post_id = ? ORDER BY created_at DESC LIMIT 1',
+        [postId]
+      );
+
+      if (!existingScript) {
+        return reply.code(404).send({
+          success: false,
+          error: 'No script found for this post. Generate a script first.',
+        });
+      }
+
+      // Parse script data
+      const scriptData: GeneratedScript = JSON.parse(
+        existingScript.script_data
+      );
+
+      // Import the generator dynamically to avoid circular dependencies
+      const { YouTubeDescriptionGenerator } = await import(
+        '../../services/claude-code/descriptionGenerator'
+      );
+      const { AdvancedSEOOptimizer } = await import(
+        '../../services/claude-code/seoOptimizer'
+      );
+
+      const descriptionGenerator = new YouTubeDescriptionGenerator();
+      const seoOptimizer = new AdvancedSEOOptimizer();
+
+      // Generate optimized description
+      const optimizedDescription =
+        await descriptionGenerator.generateOptimizedDescription(
+          scriptData,
+          {
+            id: post.id,
+            title: post.title,
+            content: post.content,
+            author: post.author,
+            subreddit: post.subreddit,
+            score: post.score,
+            upvotes: post.upvotes,
+            comments: post.comments_count,
+            created_at: new Date(post.created_at),
+            url: post.url,
+            awards: post.awards ? JSON.parse(post.awards) : [],
+          },
+          targetAudience
+        );
+
+      // Enhance with SEO optimization
+      const seoOptimization = await seoOptimizer.optimizeForSEO(
+        scriptData.titles[0],
+        optimizedDescription.fullDescription,
+        scriptData.keywords,
+        'personal-development'
+      );
+
+      // Update description with SEO-optimized version
+      optimizedDescription.fullDescription =
+        seoOptimization.optimizedDescription;
+      optimizedDescription.seoScore = seoOptimization.seoScore.overallScore;
+
+      // Store the enhanced description
+      db.run(
+        `UPDATE generated_scripts 
+         SET optimized_description = ?, 
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE post_id = ? AND id = ?`,
+        [JSON.stringify(optimizedDescription), postId, existingScript.id]
+      );
+
+      fastify.log.info('Enhanced YouTube description generated', {
+        postId,
+        scriptId: existingScript.id,
+        seoScore: optimizedDescription.seoScore,
+        engagementScore: optimizedDescription.engagementScore,
+        descriptionLength: optimizedDescription.fullDescription.length,
+      });
+
+      reply.send({
+        success: true,
+        optimizedDescription,
+        seoAnalysis: {
+          overallScore: seoOptimization.seoScore.overallScore,
+          keywordStrategy: seoOptimization.keywordStrategy.slice(0, 5), // Top 5 keywords
+          recommendations: seoOptimization.seoScore.recommendations,
+        },
+        message: 'Enhanced YouTube description generated successfully',
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Enhanced description generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { postId: request.body.postId, error }
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to generate enhanced description',
+      });
+    }
+  });
+
+  // Optimize existing description with SEO
+  fastify.post<{
+    Body: { postId: string; description: string; keywords?: string[] };
+  }>('/description/optimize-seo', async (request, reply) => {
+    try {
+      const { postId, description, keywords = [] } = request.body;
+
+      // Validate post exists
+      const post = db.get<any>('SELECT * FROM reddit_posts WHERE id = ?', [
+        postId,
+      ]);
+
+      if (!post) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Reddit post not found',
+        });
+      }
+
+      const { AdvancedSEOOptimizer } = await import(
+        '../../services/claude-code/seoOptimizer'
+      );
+      const seoOptimizer = new AdvancedSEOOptimizer();
+
+      const result = await seoOptimizer.optimizeForSEO(
+        post.title,
+        description,
+        keywords,
+        'personal-development'
+      );
+
+      fastify.log.info('SEO optimization completed', {
+        postId,
+        originalLength: description.length,
+        optimizedLength: result.optimizedDescription.length,
+        seoScore: result.seoScore.overallScore,
+      });
+
+      reply.send({
+        success: true,
+        optimizedDescription: result.optimizedDescription,
+        seoScore: result.seoScore,
+        keywordStrategy: result.keywordStrategy,
+        lsiClusters: result.lsiClusters,
+        competitorAnalysis: result.competitorAnalysis,
+        message: 'SEO optimization completed successfully',
+      });
+    } catch (error) {
+      fastify.log.error(
+        `SEO optimization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { postId: request.body.postId, error }
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to optimize description',
       });
     }
   });

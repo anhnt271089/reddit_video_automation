@@ -132,8 +132,9 @@ export function DescriptionEditor({
             <textarea
               value={localDescription}
               onChange={e => setLocalDescription(e.target.value)}
-              className="w-full h-32 p-3 text-sm border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-h-24 p-3 text-sm border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter your video description here. Include relevant hashtags like #Technology #AI #Innovation"
+              rows={4}
             />
 
             <div className="flex items-center justify-between text-xs">
@@ -154,9 +155,11 @@ export function DescriptionEditor({
           <h3 className="text-sm font-medium text-gray-900 mb-3">
             Description Preview
           </h3>
-          <div className="bg-gray-50 p-3 rounded-lg text-sm leading-relaxed">
+          <div className="w-full min-h-24 p-3 text-sm border rounded-lg bg-gray-50">
             {localDescription ? (
-              <div>{highlightHashtags(localDescription)}</div>
+              <div className="whitespace-pre-wrap">
+                {highlightHashtags(localDescription)}
+              </div>
             ) : (
               <span className="text-muted-foreground italic">
                 No description entered

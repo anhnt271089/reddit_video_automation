@@ -4,20 +4,27 @@ import { ThumbnailGenerator } from './thumbnailGenerator';
 import {
   YouTubeTitleGenerator,
   TitleGenerationAnalysis,
-} from './titleGenerator';
+} from './youtubeTitleGenerator';
+import { YouTubeDescriptionGenerator } from './descriptionGenerator';
+import { AdvancedSEOOptimizer } from './seoOptimizer';
 import {
   ScriptGenerationRequest,
   GeneratedScript,
   ScriptStyle,
   ClaudeCodeResponse,
   ValidationResult,
+  YouTubeDescription,
 } from './types';
 
 export class ClaudeCodeScriptGenerator {
   private contentProcessor: ContentProcessor;
+  private descriptionGenerator: YouTubeDescriptionGenerator;
+  private seoOptimizer: AdvancedSEOOptimizer;
 
   constructor() {
     this.contentProcessor = new ContentProcessor();
+    this.descriptionGenerator = new YouTubeDescriptionGenerator();
+    this.seoOptimizer = new AdvancedSEOOptimizer();
   }
 
   async generateScript(
@@ -69,6 +76,81 @@ export class ClaudeCodeScriptGenerator {
         `Failed to generate script: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * ENHANCED SCRIPT WITH OPTIMIZED DESCRIPTION
+   * Generates both script and optimized YouTube description
+   */
+  async generateEnhancedScript(
+    request: ScriptGenerationRequest,
+    generateOptimizedDescription: boolean = true
+  ): Promise<GeneratedScript> {
+    console.log(
+      '🚀 Starting Enhanced Script with Optimized Description Generation...'
+    );
+
+    // Generate the base script
+    const script = await this.generateScript(request);
+
+    if (generateOptimizedDescription) {
+      try {
+        // Generate optimized YouTube description
+        const optimizedDescription =
+          await this.descriptionGenerator.generateOptimizedDescription(
+            script,
+            request.redditPost,
+            {
+              demographics: 'Young professionals aged 22-40',
+              interests: [
+                'personal growth',
+                'productivity',
+                'success',
+                'psychology',
+              ],
+              painPoints: [
+                'lack of motivation',
+                'feeling stuck',
+                'no clear direction',
+              ],
+              motivations: [
+                'achieve success',
+                'improve life quality',
+                'build better habits',
+              ],
+            }
+          );
+
+        // Enhance with SEO optimization
+        const seoOptimization = await this.seoOptimizer.optimizeForSEO(
+          script.titles[0],
+          optimizedDescription.fullDescription,
+          script.keywords,
+          'personal-development'
+        );
+
+        // Update description with SEO-optimized version
+        optimizedDescription.fullDescription =
+          seoOptimization.optimizedDescription;
+        optimizedDescription.seoScore = seoOptimization.seoScore.overallScore;
+
+        script.optimizedDescription = optimizedDescription;
+
+        console.log('✅ Enhanced description generated successfully');
+        console.log(`📊 SEO Score: ${optimizedDescription.seoScore}/100`);
+        console.log(
+          `📈 Engagement Score: ${optimizedDescription.engagementScore}/100`
+        );
+      } catch (descError) {
+        console.warn(
+          'Description generation failed, using basic description:',
+          descError
+        );
+        // Continue with basic description if enhanced generation fails
+      }
+    }
+
+    return script;
   }
 
   private async invokeClaudeCode(
@@ -1482,21 +1564,14 @@ Remember: ${analysis.actionableInsights[2] || 'Progress beats perfection, and co
     const topTitle = optimizedTitles[0];
     const performance = YouTubeTitleGenerator.predictPerformance(topTitle);
 
-    const description = `This powerful story reveals the hidden psychology behind ${analysis.universalThemes.join(', ')}.
+    // Generate enhanced description using the advanced description generator
+    const enhancedDescription =
+      await YouTubeDescriptionGenerator.generateOptimizedDescription(
+        { script: 'full-script-content' }, // Placeholder for script content
+        titleAnalysis
+      );
 
-🧠 What you'll discover:
-• ${analysis.actionableInsights[0] || 'The mindset shift that changes everything'}
-• ${analysis.actionableInsights[1] || 'Why most people fail at lasting change'}
-• ${analysis.actionableInsights[2] || 'The specific steps you can take today'}
-• The science behind ${analysis.universalThemes[0] || 'transformation'}
-
-This isn't just another motivational story—it's a blueprint for ${analysis.coreTransformation.toLowerCase()}.
-
-💬 Which insight resonated most with you? Share your thoughts below.
-
-🔔 Subscribe for more psychology-backed transformation strategies.
-
-#${analysis.universalThemes.join(' #').replace(/\s+/g, '')} #Psychology #Transformation #PersonalGrowth`;
+    const description = enhancedDescription.description;
 
     return {
       titles: titleStrings,
