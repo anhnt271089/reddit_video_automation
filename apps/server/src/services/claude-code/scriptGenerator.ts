@@ -7,6 +7,7 @@ import {
 } from './youtubeTitleGenerator';
 import { YouTubeDescriptionGenerator } from './descriptionGenerator';
 import { AdvancedSEOOptimizer } from './seoOptimizer';
+import { ScriptKeywordEnhancer } from './keywordIntegration';
 import {
   ScriptGenerationRequest,
   GeneratedScript,
@@ -20,11 +21,13 @@ export class ClaudeCodeScriptGenerator {
   private contentProcessor: ContentProcessor;
   private descriptionGenerator: YouTubeDescriptionGenerator;
   private seoOptimizer: AdvancedSEOOptimizer;
+  private keywordEnhancer: ScriptKeywordEnhancer;
 
   constructor() {
     this.contentProcessor = new ContentProcessor();
     this.descriptionGenerator = new YouTubeDescriptionGenerator();
     this.seoOptimizer = new AdvancedSEOOptimizer();
+    this.keywordEnhancer = new ScriptKeywordEnhancer();
   }
 
   async generateScript(
@@ -68,8 +71,23 @@ export class ClaudeCodeScriptGenerator {
         );
       }
 
-      console.log('✅ Enhanced script generation completed successfully');
-      return script;
+      // Sprint 005 - Story 1: Enhance with intelligent keyword extraction
+      const enhancedScript =
+        this.keywordEnhancer.enhanceScriptWithKeywords(script);
+
+      // Log keyword extraction metrics
+      const metrics = this.keywordEnhancer.getExtractionMetrics(enhancedScript);
+      console.log('📊 Keyword Extraction Metrics:', {
+        averageConfidence: metrics.averageConfidence.toFixed(3),
+        totalKeywords: metrics.totalKeywords,
+        highConfidenceScenes: metrics.scenesWithHighConfidence,
+        searchOptimizationScore: metrics.searchOptimizationScore.toFixed(3),
+      });
+
+      console.log(
+        '✅ Enhanced script generation with intelligent keywords completed successfully'
+      );
+      return enhancedScript;
     } catch (error) {
       console.error('Script generation failed:', error);
       throw new Error(

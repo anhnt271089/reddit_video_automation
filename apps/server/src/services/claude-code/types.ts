@@ -3,6 +3,15 @@ export interface SceneData {
   narration: string;
   duration: number;
   visualKeywords: string[];
+  // Enhanced keyword extraction results for better Pexels search
+  keywordExtraction?: {
+    primaryKeywords: string[];
+    secondaryKeywords: string[];
+    emotionalTriggers: string[];
+    visualConcepts: string[];
+    searchPhrases: string[];
+    confidence: number;
+  };
   emotion:
     | 'inspiring'
     | 'dramatic'
