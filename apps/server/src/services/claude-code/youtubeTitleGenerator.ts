@@ -244,6 +244,10 @@ export class YouTubeTitleGenerator {
         this.extractShockingResult(analysis)
       );
       title = title.replace(/{action}/g, this.extractAction(analysis));
+      title = title.replace(
+        /{shock_outcome}/g,
+        this.extractShockOutcome(analysis)
+      );
 
       // Add SEO keywords
       seoKeywords.push(...analysis.universalThemes.slice(0, 2));
@@ -528,6 +532,55 @@ export class YouTubeTitleGenerator {
     }
 
     return actions[Math.floor(Math.random() * actions.length)];
+  }
+
+  /**
+   * Extract shock outcome for vulnerability templates
+   */
+  private static extractShockOutcome(
+    analysis: TitleGenerationAnalysis
+  ): string {
+    const shockOutcomes = [
+      'Terrified Me',
+      'Changed Everything',
+      'Broke Me Down',
+      'Saved My Life',
+      'Destroyed My Confidence',
+      'Made Me Question Everything',
+      'Left Me Speechless',
+      'Nearly Killed Me',
+      'Cost Me Everything',
+    ];
+
+    // Try to match content-specific outcomes
+    if (analysis.successOutcomes.length > 0) {
+      const outcome = analysis.successOutcomes[0].toLowerCase();
+      if (outcome.includes('lost') || outcome.includes('weight')) {
+        return 'Shocked Everyone';
+      }
+      if (outcome.includes('money') || outcome.includes('income')) {
+        return 'Made Me Rich';
+      }
+      if (outcome.includes('relationship') || outcome.includes('marriage')) {
+        return 'Saved My Marriage';
+      }
+      if (outcome.includes('health') || outcome.includes('energy')) {
+        return 'Saved My Life';
+      }
+    }
+
+    // Check for negative outcomes from pain points
+    if (analysis.audiencePainPoints.length > 0) {
+      const painPoint = analysis.audiencePainPoints[0].toLowerCase();
+      if (painPoint.includes('anxiety') || painPoint.includes('stress')) {
+        return 'Nearly Broke Me';
+      }
+      if (painPoint.includes('failure') || painPoint.includes('mistake')) {
+        return 'Cost Me Everything';
+      }
+    }
+
+    return shockOutcomes[Math.floor(Math.random() * shockOutcomes.length)];
   }
 
   /**
