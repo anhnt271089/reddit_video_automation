@@ -237,7 +237,7 @@ async function testTitleGeneration() {
 }
 
 // Run the test if this file is executed directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   testTitleGeneration().catch(console.error);
 }
 
