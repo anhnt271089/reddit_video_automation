@@ -1,71 +1,379 @@
-# Node modules
+##########################
+# Git Ignore Configuration
+# Reddit Video Automation Project
+##########################
+
+# ==========================================
+# Node.js & JavaScript/TypeScript
+# ==========================================
+
+# Dependencies
 node_modules/
 **/node_modules/
+jspm_packages/
+bower_components/
 
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Build artifacts
-dist/
-build/
-.next/
-out/
-.turbo/
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Log files
+# Package manager files (keep lock files for reproducible builds)
+# pnpm-lock.yaml should be committed
+# yarn.lock should be committed if using yarn
+# package-lock.json should be committed if using npm
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+.pnpm-debug.log*
+pnpm-debug.log*
+.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
 
-# Cache directories
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test
+
+# TypeScript
+*.tsbuildinfo
+.tsc-out/
+
+# Turbo
+.turbo/
+turbo-*.log
+
+# Vite
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Parcel
 .cache/
 .parcel-cache/
-.vite/
+
+# Next.js
+.next/
+out/
+.vercel
+
+# Gatsby
+.cache/
+public/
+
+# ==========================================
+# Testing & Quality
+# ==========================================
 
 # Test coverage
 coverage/
+*.lcov
+.nyc_output/
 
-# SQLite databases
+# Testing artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+test-reports/
+*.tap
+*.spec.js.map
+*.test.js.map
+
+# ESLint cache
+.eslintcache
+
+# ==========================================
+# Environment & Configuration
+# ==========================================
+
+# Environment variables
+.env
+.env.*
+!.env.example
+!.env.template
+!.env.test  # Keep test file with placeholders
+.env.local
+.env.*.local
+
+# Local configuration
+config.local.js
+config.local.json
+*.local.json
+*.local.yaml
+*.local.yml
+
+# ==========================================
+# Database & Storage
+# ==========================================
+
+# SQLite
 *.db
 *.sqlite
 *.sqlite3
 *.db-shm
 *.db-wal
+*.db-journal
 
-# Generated videos and assets
+# Database dumps
+*.sql
+*.dump
+
+# Data directories (project specific)
+data/
+!data/.gitkeep
+
+# ==========================================
+# Generated Content & Media
+# ==========================================
+
+# Main assets directory - ignore all generated content
+assets/**/videos/*.mp4
+assets/**/videos/*.webm
+assets/**/videos/*.avi
+assets/**/videos/*.mov
+assets/**/*.mp3
+assets/**/*.wav
+assets/**/*.png
+assets/**/*.jpg
+assets/**/*.jpeg
+
+# Keep directory structure with .gitkeep files
 assets/videos/*
 !assets/videos/.gitkeep
 assets/cache/*
 !assets/cache/.gitkeep
+assets/temp/*
+!assets/temp/.gitkeep
+assets/thumbnails/*
+!assets/thumbnails/.gitkeep
+assets/audio/*
+!assets/audio/.gitkeep
+assets/music/*
+!assets/music/.gitkeep
+assets/scripts/*
+!assets/scripts/.gitkeep
 
-# Backup files
+# Generated content folders (project IDs)
+assets/[0-9a-f]*/
+
+# Demo assets (keep in repo if needed for examples)
+# Uncomment if demo assets should be ignored
+# demo-assets/
+
+# Temporary generated files
+*.mp4.tmp
+*.mp3.tmp
+*.png.tmp
+*.jpg.tmp
+*.webm.tmp
+*.wav.tmp
+
+# ==========================================
+# IDE & Editor Files
+# ==========================================
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*.swn
+*.vim
+.netrwhist
+*~
+tags
+Session.vim
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# TextMate
+*.tmproj
+*.tmproject
+tmtags
+
+# ==========================================
+# Operating System Files
+# ==========================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# ==========================================
+# Logs & Debug Files
+# ==========================================
+
+# General logs
+*.log
+logs/
+*.log.*
+log.txt
+
+# PM2
+.pm2/
+pm2.log
+pm2-*.log
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# ==========================================
+# Backup & Temporary Files
+# ==========================================
+
+# Backup directories
+backup/
+backups/
 src_backup/
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+*.backup
+*.bak
+*.old
 
 # Temporary files
 *.tmp
 *.temp
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ==========================================
+# Runtime & Process Files
+# ==========================================
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Lock files (OS level)
+.lock-wscript
+
+# ==========================================
+# Python (if any Python scripts are used)
+# ==========================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# ==========================================
+# Project Specific
+# ==========================================
+
+# FFmpeg downloads (if storing locally)
+ffmpeg/
+ffmpeg-*
+ffprobe
+
+# API keys and secrets
+secrets/
+*.key
+*.pem
+*.cert
+*.crt
+
+# User uploads (if applicable)
+uploads/
+user-content/
+
+# Processing queue files
+queue/
+processing/
+
+# Custom ignore patterns for this project
+# Add any project-specific patterns below
