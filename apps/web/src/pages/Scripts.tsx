@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '../components/ui/Card';
-import { Input } from '../components/ui/Input';
+import { Input } from '../components/ui/FormControls';
 import {
   Table,
   TableHeader,
@@ -18,7 +18,7 @@ import {
   TableRow,
   TableCell,
 } from '../components/ui/Table';
-import { Select } from '../components/ui/Select';
+import { Select } from '../components/ui/FormControls';
 import { PostStatusManager } from '@video-automation/shared-types';
 import type {
   VideoScript,
