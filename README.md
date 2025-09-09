@@ -1,10 +1,6 @@
-# Video Automation
+# Reddit Video Automation
 
-Simplified Reddit-to-Video automation workflow with local-first architecture.
-
-## Overview
-
-This project automates the creation of motivational videos from Reddit posts using modern JavaScript tooling and AI-powered content generation. The system processes Reddit posts through Claude-generated scripts, Pexels asset integration, and Remotion video generation.
+Automated Reddit-to-Video pipeline with AI-powered content generation.
 
 ## Prerequisites
 
@@ -56,14 +52,11 @@ video_automation/
 │   ├── web/                    # React frontend (Vite + TypeScript)
 │   └── server/                 # Fastify backend (Node.js + TypeScript)
 ├── packages/
-│   ├── shared/                 # Shared TypeScript types
-│   └── remotion-templates/     # Video generation templates
+│   └── shared/                 # Shared TypeScript types
 ├── assets/
 │   ├── music/                  # Background music files
 │   ├── cache/                  # Pexels asset cache
 │   └── videos/                 # Generated video outputs
-├── docs/                       # Architecture and documentation
-├── scripts/                    # Build and deployment scripts
 └── configuration files...
 ```
 
@@ -82,15 +75,12 @@ video_automation/
 - `apps/web/.env` - Frontend configuration
 - See `.env.example` files for required variables
 
-## Architecture
+## Tech Stack
 
-This project uses:
-
-- **Monorepo**: pnpm workspaces for efficient dependency management
-- **Frontend**: React 18 + TypeScript 5 + Vite + Tailwind CSS
-- **Backend**: Fastify 4 + TypeScript 5 + SQLite → PostgreSQL
-- **Video Generation**: Remotion 4 for programmatic video creation
-- **Build System**: Turbo for optimized builds with caching
+- **Monorepo**: pnpm workspaces
+- **Frontend**: React + TypeScript + Vite + Tailwind CSS
+- **Backend**: Fastify + TypeScript + SQLite
+- **Build System**: Turbo
 
 ## Development Workflow
 
@@ -98,13 +88,3 @@ This project uses:
 2. **Script Generation**: AI-powered script creation with Claude
 3. **Asset Matching**: Intelligent Pexels asset selection
 4. **Video Generation**: Remotion-based video rendering with synchronization
-
-## Links
-
-- [Architecture Documentation](docs/architecture.md)
-- [Product Requirements](docs/prd.md)
-- [Development Standards](docs/architecture/coding-standards.md)
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
