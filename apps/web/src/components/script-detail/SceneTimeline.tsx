@@ -1,19 +1,136 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import type { SceneMetadata } from '../../types/claude-code';
 import { clsx } from 'clsx';
+
+interface SearchPhrase {
+  sentenceId: number;
+  primaryPhrase: string;
+  alternativeKeywords: string[];
+  assetType: 'photo' | 'video';
+  reasoning: string;
+}
 
 interface SceneTimelineProps {
   scenes: SceneMetadata[];
   currentContent?: string; // Add current script content for accurate sentence counting
+  scriptId?: string; // Script ID for file naming
   onSceneUpdate?: (sceneId: number, updates: Partial<SceneMetadata>) => void;
 }
 
 export function SceneTimeline({
   scenes,
   currentContent,
+  scriptId,
   onSceneUpdate,
 }: SceneTimelineProps) {
+  const [searchPhrases, setSearchPhrases] = useState<SearchPhrase[]>([]);
+  const [isGeneratingPhrases, setIsGeneratingPhrases] = useState(false);
+  const [downloadingScenes, setDownloadingScenes] = useState<Set<number>>(
+    new Set()
+  );
+  const [downloadedScenes, setDownloadedScenes] = useState<Set<number>>(
+    new Set()
+  );
+
+  // Generate search phrases for sentences
+  const generateSearchPhrases = async (sentences: any[]) => {
+    if (sentences.length === 0) {
+      return;
+    }
+
+    setIsGeneratingPhrases(true);
+    try {
+      const response = await fetch('/api/search-phrases/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sentences: sentences.map(sentence => ({
+            id: sentence.id,
+            content: sentence.content || sentence.narration,
+            duration: sentence.duration,
+            assetType: sentence.duration < 4 ? 'photo' : 'video',
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSearchPhrases(result.data || []);
+        console.log('Generated search phrases:', result.data);
+      } else {
+        console.error(
+          'Failed to generate search phrases:',
+          response.statusText
+        );
+      }
+    } catch (error) {
+      console.error('Error generating search phrases:', error);
+    } finally {
+      setIsGeneratingPhrases(false);
+    }
+  };
+
+  // Download asset for a scene
+  const downloadAsset = async (
+    sceneId: number,
+    searchPhrase: string,
+    assetType: 'photo' | 'video'
+  ) => {
+    if (!scriptId) {
+      alert('❌ Script ID not available');
+      return;
+    }
+
+    setDownloadingScenes(prev => new Set(prev).add(sceneId));
+
+    try {
+      console.log(`Downloading ${assetType} for scene ${sceneId}:`, {
+        searchPhrase,
+        scriptId,
+      });
+
+      const response = await fetch('/api/pexels-download/search-and-download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          searchPhrase,
+          assetType,
+          scriptId,
+          sentenceId: sceneId,
+        }),
+      });
+
+      const result = await response.json();
+      console.log('Download result:', result);
+
+      if (response.ok && result.success) {
+        setDownloadedScenes(prev => new Set(prev).add(sceneId));
+        console.log(
+          `✅ Downloaded ${assetType} for scene ${sceneId}! File: ${result.data.filename}`
+        );
+      } else {
+        alert(`❌ Download failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert(
+        `❌ Download error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setDownloadingScenes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sceneId);
+        return newSet;
+      });
+    }
+  };
+
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -351,6 +468,14 @@ export function SceneTimeline({
     return scenes.length; // Fallback to scenes length if no current content
   };
 
+  // Auto-generate search phrases when timeline items change
+  useEffect(() => {
+    const timelineItems = getTimelineItems();
+    if (timelineItems.length > 0 && searchPhrases.length === 0) {
+      generateSearchPhrases(timelineItems);
+    }
+  }, [currentContent, scenes]);
+
   // Generate timeline items from current content when available
   const getTimelineItems = () => {
     if (currentContent) {
@@ -449,6 +574,11 @@ export function SceneTimeline({
     return 'contemplative'; // Default
   };
 
+  // Get search phrase data for a specific scene
+  const getSearchPhrase = (sceneId: number): SearchPhrase | null => {
+    return searchPhrases.find(phrase => phrase.sentenceId === sceneId) || null;
+  };
+
   return (
     <div className="space-y-2">
       <div className="space-y-1">
@@ -466,51 +596,131 @@ export function SceneTimeline({
             )}
 
             {/* Scene content */}
-            <div className="flex-1 grid grid-cols-12 gap-2 items-center">
-              {/* Scene number and timing */}
-              <div className="col-span-1">
-                <div className="text-center">
-                  <div className="text-sm font-bold text-gray-900">
-                    {scene.id}
-                  </div>
-                  <div className="text-xs text-gray-500 leading-tight">
-                    {formatTime(scene.startTime)}
+            <div className="flex-1 space-y-1.5">
+              <div className="flex items-start gap-3">
+                {/* Scene number and timing */}
+                <div className="flex-shrink-0 text-center min-w-[50px]">
+                  <div className="flex flex-col items-center space-y-1">
+                    <div className="text-sm font-bold text-gray-900">
+                      {scene.id}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {formatTime(scene.startTime)}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Scene content */}
-              <div className="col-span-7">
-                <p className="text-xs text-gray-700 leading-tight">
-                  {scene.narration || scene.content}
-                </p>
-              </div>
+                {/* Scene content and search phrase */}
+                <div className="flex-1 space-y-1.5">
+                  {/* Main sentence */}
+                  <p className="text-sm text-gray-800 leading-tight">
+                    {scene.narration || scene.content}
+                  </p>
 
-              {/* Visual keywords */}
-              <div className="col-span-2">
-                <div className="flex flex-wrap gap-0.5">
-                  {extractKeywordsFromText(
-                    scene.narration || scene.content
-                  ).map((keyword, keywordIndex) => (
-                    <Badge
-                      key={keywordIndex}
-                      variant="secondary"
-                      className="text-xs px-1 py-0 h-auto"
-                    >
-                      {keyword}
+                  {/* Search phrase and download button */}
+                  {(() => {
+                    const searchPhrase = getSearchPhrase(scene.id);
+                    const assetType = scene.duration < 4 ? 'photo' : 'video';
+                    const isDownloading = downloadingScenes.has(scene.id);
+                    const isDownloaded = downloadedScenes.has(scene.id);
+
+                    if (searchPhrase) {
+                      return (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <span className="text-lg">
+                            {assetType === 'photo' ? '📷' : '🎬'}
+                          </span>
+                          <span className="italic flex-1">
+                            {searchPhrase.primaryPhrase}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant={isDownloaded ? 'success' : 'default'}
+                            disabled={isDownloading || isDownloaded}
+                            onClick={() =>
+                              downloadAsset(
+                                scene.id,
+                                searchPhrase.primaryPhrase,
+                                assetType
+                              )
+                            }
+                            className={`ml-2 transition-all duration-200 ${
+                              isDownloaded
+                                ? 'bg-green-500 hover:bg-green-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1">
+                              {isDownloading ? (
+                                <>
+                                  <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
+                                  <span className="text-xs">Downloading</span>
+                                </>
+                              ) : isDownloaded ? (
+                                <>
+                                  <svg
+                                    className="h-3 w-3 text-white"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                  <span className="text-xs">Downloaded</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg
+                                    className="h-3 w-3 text-white"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                    />
+                                  </svg>
+                                  <span className="text-xs">Download</span>
+                                </>
+                              )}
+                            </div>
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    if (isGeneratingPhrases) {
+                      return (
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <span className="animate-pulse">🤖</span>
+                          <span className="italic animate-pulse">
+                            Generating search phrase...
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })()}
+                </div>
+
+                {/* Duration and emotion */}
+                <div className="flex-shrink-0 text-right min-w-[80px]">
+                  <div className="space-y-1">
+                    <Badge variant="outline" className="text-xs px-2 py-0.5">
+                      {scene.duration}s
                     </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {/* Duration and emotion */}
-              <div className="col-span-2 text-right">
-                <div className="space-y-0.5">
-                  <Badge variant="outline" className="text-xs px-1 py-0 h-auto">
-                    {scene.duration}s
-                  </Badge>
-                  <div className="text-xs text-gray-500 capitalize leading-tight">
-                    {scene.emotion}
+                    <div className="text-xs text-gray-500 capitalize">
+                      {scene.emotion}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -246,6 +246,7 @@ export function ScriptDetailPage({
                 <SceneTimeline
                   scenes={script.metadata?.scenes || []}
                   currentContent={script.content}
+                  scriptId={scriptId}
                   onSceneUpdate={handleSceneUpdate}
                 />
               </div>
