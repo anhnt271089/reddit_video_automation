@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { redditRoutes } from './reddit.js';
 import scriptsRoutes from './scripts.js';
 import testScriptsRoutes from '../test-scripts.js';
+import searchPhraseRoutes from './search-phrases.js';
+import pexelsDownloadRoutes from './pexels-download.js';
 
 export async function apiRoutes(fastify: FastifyInstance) {
   // API route prefix
@@ -12,6 +14,12 @@ export async function apiRoutes(fastify: FastifyInstance) {
 
       // Register Scripts API routes
       fastify.register(scriptsRoutes, { prefix: '/scripts' });
+
+      // Register Search Phrases API routes
+      fastify.register(searchPhraseRoutes, { prefix: '/search-phrases' });
+
+      // Register Pexels Download API routes
+      fastify.register(pexelsDownloadRoutes, { prefix: '/pexels-download' });
 
       // Register Test Scripts routes (for development/testing)
       fastify.register(testScriptsRoutes);
