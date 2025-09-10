@@ -34,6 +34,8 @@ type UnifiedPostStatus =
   | 'script_approved'
   | 'script_generation_failed'
   | 'rejected'
+  | 'assets_downloading'
+  | 'assets_paused'
   | 'assets_ready'
   | 'rendering'
   | 'completed'
@@ -63,6 +65,7 @@ export function Scripts() {
     dateTo: '',
   });
   const [retryingScript, setRetryingScript] = useState<string | null>(null);
+  const [deletingScript, setDeletingScript] = useState<string | null>(null);
 
   // Fetch scripts with posts data
   useEffect(() => {
@@ -88,15 +91,15 @@ export function Scripts() {
         const scriptsData: ScriptWithPost[] = data.scripts.map(
           (scriptData: any) => ({
             script: {
-              id: scriptData.id || `script-${scriptData.postId}`,
+              id: scriptData.id || scriptData.postId,
               post_id: scriptData.postId,
               script_content: scriptData.content || '',
               scene_breakdown: [],
-              duration_target: 60, // Default duration
+              duration_target: scriptData.duration || 0,
               titles: [],
               description: '',
               thumbnail_suggestions: [],
-              version: 1,
+              version: scriptData.version || 1,
               approved: scriptData.status === 'script_approved',
               generated_at: new Date(
                 scriptData.createdAt || scriptData.updatedAt
@@ -104,17 +107,19 @@ export function Scripts() {
             },
             post: {
               id: scriptData.postId,
-              title: scriptData.title,
+              title: scriptData.title || 'Untitled',
               content: scriptData.content || '',
-              author: scriptData.author,
-              subreddit: scriptData.subreddit,
-              score: 0,
-              upvotes: 0,
-              comments: 0,
+              author: scriptData.author || 'unknown',
+              subreddit: scriptData.subreddit || 'unknown',
+              score: scriptData.score || 0,
+              upvotes: scriptData.upvotes || 0,
+              comments: scriptData.comments || 0,
               created_at: scriptData.createdAt,
-              url: `https://reddit.com/r/${scriptData.subreddit}`,
+              url:
+                scriptData.url ||
+                `https://reddit.com/r/${scriptData.subreddit}`,
               status: scriptData.status as UnifiedPostStatus,
-              quality_score: 75,
+              quality_score: scriptData.qualityScore || 0,
             },
           })
         );
@@ -194,17 +199,32 @@ export function Scripts() {
     }
   };
 
-  const getStatusIcon = (status: UnifiedPostStatus) => {
-    switch (status) {
-      case 'script_generated':
-      case 'script_approved':
-        return <span className="text-green-500">✅</span>;
-      case 'script_generating':
-        return <span className="text-blue-500">⏳</span>;
-      case 'script_generation_failed':
-        return <span className="text-red-500">⚠️</span>;
-      default:
-        return null;
+  const handleDeleteScript = async (scriptId: string) => {
+    if (
+      !confirm(
+        'Are you sure you want to delete this script? This action cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingScript(scriptId);
+
+      const response = await fetch(`/api/scripts/${scriptId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete script');
+      }
+
+      // Refresh scripts data
+      await fetchScripts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete script');
+    } finally {
+      setDeletingScript(null);
     }
   };
 
@@ -215,6 +235,31 @@ export function Scripts() {
       dateFrom: '',
       dateTo: '',
     });
+  };
+
+  // Format date/time in GMT+7 timezone
+  const formatDateTimeGMT7 = (dateString: string) => {
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: 'Asia/Bangkok', // GMT+7
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    };
+    return new Intl.DateTimeFormat('en-GB', options).format(date);
+  };
+
+  // Format duration from seconds to MM:SS format
+  const formatDuration = (seconds: number) => {
+    if (seconds <= 0) {
+      return 'N/A';
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -240,10 +285,13 @@ export function Scripts() {
             Manage and review generated video scripts
           </p>
         </div>
-        <Button onClick={fetchScripts} variant="outline" size="sm">
-          <span className="mr-2">🔄</span>
+        <button
+          onClick={fetchScripts}
+          className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors flex items-center gap-2"
+        >
+          <span>🔄</span>
           Refresh
-        </Button>
+        </button>
       </div>
 
       {/* Error Display */}
@@ -259,96 +307,170 @@ export function Scripts() {
       )}
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center">
-            <span className="mr-2">🔍</span>
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
+      <div className="bg-white p-3 rounded-xl border border-gray-200 mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-4">
+            <h3 className="text-sm font-semibold text-gray-900">
+              Filter Scripts
+            </h3>
+            <div className="text-xs text-gray-500">
+              Showing {filteredScripts.length.toLocaleString()} of{' '}
+              {scripts.length.toLocaleString()} scripts
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {(filters.search !== '' ||
+              filters.status !== 'all' ||
+              filters.dateFrom !== '' ||
+              filters.dateTo !== '') && (
+              <button
+                onClick={resetFilters}
+                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Main Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          {/* Search */}
+          <div className="md:col-span-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Search
+            </label>
             <div className="relative">
-              <label htmlFor="search-scripts" className="sr-only">
-                Search scripts
-              </label>
-              <span className="absolute left-3 top-3 text-muted-foreground">
-                🔍
-              </span>
-              <Input
-                id="search-scripts"
-                placeholder="Search scripts..."
+              <input
+                type="text"
+                placeholder="Search scripts and posts..."
                 value={filters.search}
                 onChange={e =>
                   setFilters(prev => ({ ...prev, search: e.target.value }))
                 }
-                className="pl-10"
+                className="w-full pl-10 pr-4 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label htmlFor="status-filter" className="sr-only">
-                Filter by status
-              </label>
-              <Select
-                id="status-filter"
-                value={filters.status}
-                onChange={e =>
-                  setFilters(prev => ({
-                    ...prev,
-                    status: e.target.value as UnifiedPostStatus | 'all',
-                  }))
-                }
-              >
-                <option value="all">All Statuses</option>
-                <option value="script_generating">Generating</option>
-                <option value="script_generated">Generated</option>
-                <option value="script_approved">Approved</option>
-                <option value="script_generation_failed">Failed</option>
-              </Select>
-            </div>
-
-            {/* Date Range */}
-            <div>
-              <label htmlFor="date-from" className="sr-only">
-                From date
-              </label>
-              <Input
-                id="date-from"
-                type="date"
-                placeholder="From date"
-                value={filters.dateFrom}
-                onChange={e =>
-                  setFilters(prev => ({ ...prev, dateFrom: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <label htmlFor="date-to" className="sr-only">
-                To date
-              </label>
-              <Input
-                id="date-to"
-                type="date"
-                placeholder="To date"
-                value={filters.dateTo}
-                onChange={e =>
-                  setFilters(prev => ({ ...prev, dateTo: e.target.value }))
-                }
-              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-400">🔍</span>
+              </div>
             </div>
           </div>
 
-          {/* Reset Filters */}
-          <div className="flex justify-end">
-            <Button variant="ghost" onClick={resetFilters} size="sm">
-              Clear Filters
-            </Button>
+          {/* Status Filter */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              value={filters.status}
+              onChange={e =>
+                setFilters(prev => ({
+                  ...prev,
+                  status: e.target.value as UnifiedPostStatus | 'all',
+                }))
+              }
+              className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="script_generated">Script Ready</option>
+              <option value="script_approved">Script Approved</option>
+              <option value="assets_downloading">Assets Downloading</option>
+              <option value="assets_paused">Assets Paused</option>
+              <option value="assets_ready">Assets Downloaded</option>
+              <option value="rendering">Rendering Video</option>
+              <option value="completed">Video Complete</option>
+            </select>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Date Range */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              From Date
+            </label>
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={e =>
+                setFilters(prev => ({ ...prev, dateFrom: e.target.value }))
+              }
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              To Date
+            </label>
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={e =>
+                setFilters(prev => ({ ...prev, dateTo: e.target.value }))
+              }
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Active Filters Display */}
+        {(filters.search !== '' ||
+          filters.status !== 'all' ||
+          filters.dateFrom !== '' ||
+          filters.dateTo !== '') && (
+          <div className="border-t pt-4 mt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-700">
+                Active filters:
+              </span>
+
+              {filters.search && (
+                <Badge
+                  variant="info"
+                  className="cursor-pointer"
+                  onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                >
+                  Search: "{filters.search}" ✕
+                </Badge>
+              )}
+
+              {filters.status !== 'all' && (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setFilters(prev => ({ ...prev, status: 'all' }))
+                  }
+                >
+                  Status: {filters.status} ✕
+                </Badge>
+              )}
+
+              {filters.dateFrom && (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setFilters(prev => ({ ...prev, dateFrom: '' }))
+                  }
+                >
+                  From: {filters.dateFrom} ✕
+                </Badge>
+              )}
+
+              {filters.dateTo && (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer"
+                  onClick={() => setFilters(prev => ({ ...prev, dateTo: '' }))}
+                >
+                  To: {filters.dateTo} ✕
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Scripts Table */}
       <Card>
@@ -365,15 +487,19 @@ export function Scripts() {
               filters.status !== 'all' ||
               filters.dateFrom ||
               filters.dateTo ? (
-                <Button variant="ghost" onClick={resetFilters} className="mt-2">
+                <button
+                  onClick={resetFilters}
+                  className="mt-2 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                >
                   Clear filters to see all scripts
-                </Button>
+                </button>
               ) : null}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>ID</TableHead>
                   <TableHead>Post Title</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Generated</TableHead>
@@ -386,6 +512,11 @@ export function Scripts() {
                 {filteredScripts.map(({ script, post }) => (
                   <TableRow key={script.id}>
                     <TableCell>
+                      <div className="text-sm font-mono text-muted-foreground">
+                        {script.id.slice(0, 8)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className="max-w-xs">
                         <p className="font-medium truncate">{post.title}</p>
                         <p className="text-sm text-muted-foreground truncate">
@@ -394,58 +525,82 @@ export function Scripts() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(post.status)}
-                        <Badge
-                          variant={PostStatusManager.getStatusVariant(
-                            post.status
-                          )}
-                        >
+                      <Badge
+                        variant={PostStatusManager.getStatusVariant(
+                          post.status
+                        )}
+                        className="gap-1.5 font-normal"
+                      >
+                        <span className="text-sm">
+                          {PostStatusManager.getStatusIcon(post.status)}
+                        </span>
+                        <span>
                           {PostStatusManager.getDisplayName(post.status)}
-                        </Badge>
-                      </div>
+                        </span>
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {new Date(script.generated_at).toLocaleDateString()}
+                        {script.generated_at
+                          ? formatDateTimeGMT7(
+                              script.generated_at.toISOString()
+                            ).split(', ')[0]
+                          : 'N/A'}
                         <br />
                         <span className="text-muted-foreground">
-                          {new Date(script.generated_at).toLocaleTimeString()}
+                          {script.generated_at
+                            ? formatDateTimeGMT7(
+                                script.generated_at.toISOString()
+                              ).split(', ')[1]
+                            : 'N/A'}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {script.duration_target > 0
-                        ? `${script.duration_target}s`
-                        : 'N/A'}
+                      {formatDuration(script.duration_target)}
                     </TableCell>
                     <TableCell>v{script.version}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                      <div className="flex items-center justify-end space-x-1.5">
                         {post.status === 'script_generation_failed' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <button
                             onClick={() => handleRetryGeneration(post.id)}
                             disabled={retryingScript === post.id}
+                            className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                           >
-                            {retryingScript === post.id ? (
-                              <span className="animate-spin">🔄</span>
-                            ) : (
-                              'Retry'
-                            )}
-                          </Button>
+                            <span className="text-sm">
+                              {retryingScript === post.id ? '⟳' : '↻'}
+                            </span>
+                            <span>
+                              {retryingScript === post.id
+                                ? 'Retrying...'
+                                : 'Retry'}
+                            </span>
+                          </button>
                         )}
                         {script.script_content && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          <button
                             onClick={() => handleViewScript(script.id)}
+                            className="px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-md hover:bg-violet-100 focus:ring-2 focus:ring-violet-500 transition-colors flex items-center gap-1.5"
                           >
-                            <span className="mr-1">👁️</span>
-                            View
-                          </Button>
+                            <span className="text-sm">👁</span>
+                            <span>View</span>
+                          </button>
                         )}
+                        <button
+                          onClick={() => handleDeleteScript(script.id)}
+                          disabled={deletingScript === script.id}
+                          className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                        >
+                          <span className="text-sm">
+                            {deletingScript === script.id ? '⟳' : '🗑'}
+                          </span>
+                          <span>
+                            {deletingScript === script.id
+                              ? 'Deleting...'
+                              : 'Delete'}
+                          </span>
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
