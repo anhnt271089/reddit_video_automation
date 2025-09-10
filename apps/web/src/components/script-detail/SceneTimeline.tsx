@@ -419,11 +419,15 @@ export function SceneTimeline({
       keywordScores.set(word, (keywordScores.get(word) || 0) + score);
     });
 
-    // Sort by score and return all meaningful keywords (no limit)
-    return Array.from(keywordScores.entries())
-      .sort(([, a], [, b]) => b - a) // Sort by score descending
+    // Filter meaningful keywords and return in order of appearance
+    const meaningfulKeywords = Array.from(keywordScores.entries())
       .filter(([word, score]) => score >= 2) // Only include words with meaningful scores
       .map(([word]) => word);
+
+    // Return keywords in the order they appear in the original sentence
+    return words
+      .filter(word => meaningfulKeywords.includes(word))
+      .filter((word, index, arr) => arr.indexOf(word) === index); // Remove duplicates while preserving order
   };
 
   const getEmotionColor = (emotion: string) => {
@@ -621,6 +625,21 @@ export function SceneTimeline({
                   <p className="text-sm text-gray-800 leading-tight">
                     {scene.narration || scene.content}
                   </p>
+
+                  {/* Visual Keywords for Typography */}
+                  {scene.visualKeywords && scene.visualKeywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {scene.visualKeywords.map((keyword, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="secondary"
+                          className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 border-blue-200"
+                        >
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Search phrase and download button */}
                   {(() => {
