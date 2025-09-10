@@ -752,12 +752,6 @@ export function ScriptDetailPage({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {/* Debug info */}
-          <span className="text-xs text-gray-500">
-            Status: {script.status} | Approved: {isApproved.toString()} |
-            Started: {hasStartedDownload.toString()}
-          </span>
-
           {/* Multi-State Action Button */}
           <Button
             onClick={handleMainAction}
