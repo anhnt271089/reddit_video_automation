@@ -93,13 +93,7 @@ const scriptsRoutes: FastifyPluginCallback = (
           COALESCE(sv.id, rp.id) as id,
           rp.id as postId,
           rp.title,
-          CASE 
-            WHEN sv.is_active = 1 AND sv.script_content IS NOT NULL THEN 'script_generated'
-            WHEN gq.status = 'processing' THEN 'script_generating' 
-            WHEN gq.status = 'failed' THEN 'script_generation_failed'
-            WHEN rp.status = 'idea_selected' AND gq.id IS NULL THEN 'script_generating'
-            ELSE rp.status
-          END as status,
+          rp.status as status,
           COALESCE(sv.script_content, '') as content,
           COALESCE(sv.created_at, rp.discovered_at) as createdAt,
           COALESCE(sv.created_at, rp.updated_at) as updatedAt,
@@ -113,15 +107,105 @@ const scriptsRoutes: FastifyPluginCallback = (
         FROM reddit_posts rp
         LEFT JOIN script_versions sv ON sv.post_id = rp.id AND sv.is_active = 1
         LEFT JOIN generation_queue gq ON gq.post_id = rp.id
-        WHERE rp.status IN ('idea_selected', 'script_generating', 'script_generated', 'script_approved', 'script_generation_failed')
-           OR sv.id IS NOT NULL
+        WHERE rp.status IN ('script_generated', 'script_approved', 'assets_downloading', 'assets_paused', 'assets_ready', 'rendering', 'completed')
+           AND sv.id IS NOT NULL
         GROUP BY rp.id
         ORDER BY COALESCE(sv.created_at, rp.discovered_at) DESC
       `);
 
-      reply.send({
-        success: true,
-        scripts: scripts.map(script => ({
+      // Enhance script data with metadata
+      const enhancedScripts = scripts.map(script => {
+        let duration = 0;
+        let version = 1;
+
+        // Try to get duration from scene breakdown if available
+        if (script.content) {
+          const scriptVersion = db.get<any>(
+            'SELECT scene_breakdown, version_number FROM script_versions WHERE post_id = ? AND is_active = 1',
+            [script.postId]
+          );
+
+          fastify.log.info('Script version lookup', {
+            postId: script.postId,
+            scriptId: script.id,
+            hasScriptVersion: !!scriptVersion,
+            hasSceneBreakdown: scriptVersion?.scene_breakdown ? true : false,
+            versionNumber: scriptVersion?.version_number,
+          });
+
+          if (scriptVersion) {
+            version = scriptVersion.version_number || 1;
+
+            if (scriptVersion.scene_breakdown) {
+              try {
+                const scenes = JSON.parse(scriptVersion.scene_breakdown);
+                duration = scenes.reduce((total: number, scene: any) => {
+                  return total + (scene.duration_estimate || 15);
+                }, 0);
+
+                fastify.log.info('Duration calculated from scenes', {
+                  postId: script.postId,
+                  scenesCount: scenes.length,
+                  calculatedDuration: duration,
+                });
+              } catch (error) {
+                fastify.log.warn(
+                  'Failed to parse scene breakdown, using word count fallback',
+                  {
+                    postId: script.postId,
+                    error:
+                      error instanceof Error ? error.message : 'Unknown error',
+                  }
+                );
+
+                // Fallback: estimate duration from word count (rough estimate: 150 words per minute)
+                const wordCount = script.content.split(/\s+/).length;
+                duration = Math.max(30, Math.round((wordCount / 150) * 60));
+
+                fastify.log.info('Duration calculated from word count', {
+                  postId: script.postId,
+                  wordCount,
+                  estimatedDuration: duration,
+                });
+              }
+            } else {
+              // No scene breakdown available, estimate from word count
+              const wordCount = script.content.split(/\s+/).length;
+              duration = Math.max(30, Math.round((wordCount / 150) * 60));
+
+              fastify.log.info(
+                'Duration estimated from word count (no scenes)',
+                {
+                  postId: script.postId,
+                  wordCount,
+                  estimatedDuration: duration,
+                }
+              );
+            }
+          } else {
+            fastify.log.info(
+              'No script version found, using content word count',
+              {
+                postId: script.postId,
+                hasContent: !!script.content,
+              }
+            );
+
+            // No script version found, estimate from word count if content exists
+            if (script.content) {
+              const wordCount = script.content.split(/\s+/).length;
+              duration = Math.max(30, Math.round((wordCount / 150) * 60));
+
+              fastify.log.info('Duration estimated from content word count', {
+                postId: script.postId,
+                wordCount,
+                estimatedDuration: duration,
+              });
+            }
+          }
+        }
+
+        return {
           id: script.id,
           postId: script.postId,
           title: script.title || 'Untitled',
@@ -132,7 +216,14 @@ const scriptsRoutes: FastifyPluginCallback = (
           subreddit: script.subreddit || 'unknown',
           author: script.author || 'unknown',
           error: script.error || undefined,
-        })),
+          duration,
+          version,
+        };
+      });
+
+      reply.send({
+        success: true,
+        scripts: enhancedScripts,
       });
     } catch (error) {
       fastify.log.error(
@@ -262,12 +353,7 @@ const scriptsRoutes: FastifyPluginCallback = (
           sv.id,
           sv.post_id as postId,
           rp.title,
-          CASE 
-            WHEN sv.is_active = 1 AND sv.script_content IS NOT NULL THEN 'script_generated'
-            WHEN gq.status = 'processing' THEN 'script_generating' 
-            WHEN gq.status = 'failed' THEN 'script_generation_failed'
-            ELSE rp.status
-          END as status,
+          rp.status as status,
           COALESCE(sv.script_content, '') as content,
           sv.created_at as createdAt,
           sv.created_at as updatedAt,
@@ -1158,6 +1244,48 @@ const scriptsRoutes: FastifyPluginCallback = (
     }
   });
 
+  // Start download for script
+  fastify.post<{
+    Params: { id: string };
+  }>('/:id/download/start', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Update database status to assets_downloading
+      const updateResult = fastify.db.run(
+        'UPDATE reddit_posts SET status = ? WHERE id = ?',
+        ['assets_downloading', id]
+      );
+
+      if (updateResult.changes === 0) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      fastify.log.info('Download started and status updated', {
+        scriptId: id,
+        changes: updateResult.changes,
+      });
+
+      reply.send({
+        success: true,
+        message: 'Download started',
+        status: 'assets_downloading',
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Download start failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to start download',
+      });
+    }
+  });
+
   // Pause download for script
   fastify.post<{
     Params: { id: string };
@@ -1165,14 +1293,28 @@ const scriptsRoutes: FastifyPluginCallback = (
     try {
       const { id } = request.params;
 
-      // Store pause state in memory or database
-      // For now, we'll just return success as the frontend handles the pause logic
-      fastify.log.info('Download pause requested', { scriptId: id });
+      // Update database status to assets_paused
+      const updateResult = fastify.db.run(
+        'UPDATE reddit_posts SET status = ? WHERE id = ?',
+        ['assets_paused', id]
+      );
+
+      if (updateResult.changes === 0) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      fastify.log.info('Download pause requested and status updated', {
+        scriptId: id,
+        changes: updateResult.changes,
+      });
 
       reply.send({
         success: true,
         message: 'Download paused',
-        status: 'paused',
+        status: 'assets_paused',
       });
     } catch (error) {
       fastify.log.error(
@@ -1193,13 +1335,28 @@ const scriptsRoutes: FastifyPluginCallback = (
     try {
       const { id } = request.params;
 
-      // Clear pause state
-      fastify.log.info('Download resume requested', { scriptId: id });
+      // Update database status to assets_downloading
+      const updateResult = fastify.db.run(
+        'UPDATE reddit_posts SET status = ? WHERE id = ?',
+        ['assets_downloading', id]
+      );
+
+      if (updateResult.changes === 0) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      fastify.log.info('Download resume requested and status updated', {
+        scriptId: id,
+        changes: updateResult.changes,
+      });
 
       reply.send({
         success: true,
         message: 'Download resumed',
-        status: 'downloading',
+        status: 'assets_downloading',
       });
     } catch (error) {
       fastify.log.error(
@@ -1209,6 +1366,65 @@ const scriptsRoutes: FastifyPluginCallback = (
         success: false,
         error:
           error instanceof Error ? error.message : 'Failed to resume download',
+      });
+    }
+  });
+
+  // Delete script
+  fastify.delete<{
+    Params: { id: string };
+  }>('/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      fastify.log.info('Script deletion requested', { scriptId: id });
+
+      // Find the script by either script version ID or post ID
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      // Execute deletion in transaction for data integrity
+      db.transaction(() => {
+        // Delete from script_versions table
+        db.run('DELETE FROM script_versions WHERE post_id = ?', [
+          script.post_id,
+        ]);
+
+        // Delete from generation_queue table
+        db.run('DELETE FROM generation_queue WHERE post_id = ?', [
+          script.post_id,
+        ]);
+
+        // Delete from reddit_posts table
+        db.run('DELETE FROM reddit_posts WHERE id = ?', [script.post_id]);
+      });
+
+      fastify.log.info('Script deleted successfully', {
+        scriptId: script.id,
+        postId: script.post_id,
+      });
+
+      reply.send({
+        success: true,
+        message: 'Script deleted successfully',
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Script deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to delete script',
       });
     }
   });
