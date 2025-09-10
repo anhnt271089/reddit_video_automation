@@ -42,6 +42,7 @@ export function ScriptDetailPage({
   const [hasStartedDownload, setHasStartedDownload] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
   const [allAssetsDownloaded, setAllAssetsDownloaded] = useState(false);
+
   const [downloadStats, setDownloadStats] = useState<{
     total: number;
     completed: number;
@@ -65,6 +66,14 @@ export function ScriptDetailPage({
   // Refs for tracking download state inside loops to avoid stale closures
   const isDownloadingRef = useRef(false);
   const isPausedRef = useRef(false);
+
+  // Debug pause state changes
+  useEffect(() => {
+    console.log('🎛️ Pause state changed:', {
+      isPaused,
+      isPausedRef: isPausedRef.current,
+    });
+  }, [isPaused]);
 
   // Initialize photo/video counts when script loads
   useEffect(() => {
@@ -379,6 +388,28 @@ export function ScriptDetailPage({
     isDownloadingRef.current = true;
     isPausedRef.current = false;
 
+    // Force debug the initial state
+    console.log('🔧 Setting download state:', {
+      beforeSet: {
+        isPaused,
+        isPausedRef: isPausedRef.current,
+        isDownloading,
+        isDownloadingRef: isDownloadingRef.current,
+      },
+      afterSet: {
+        isPaused: false,
+        isPausedRef: false,
+        isDownloading: true,
+        isDownloadingRef: true,
+      },
+    });
+
+    // Double check the refs are actually set correctly
+    console.log('🔧 Verifying refs after setting:', {
+      isPausedRef: isPausedRef.current,
+      isDownloadingRef: isDownloadingRef.current,
+    });
+
     try {
       // First, generate search phrases for all scenes
       const scenes = script.metadata.scenes || [];
@@ -452,6 +483,13 @@ export function ScriptDetailPage({
         'phrases'
       );
 
+      console.log('🚀 Initial state before loop:', {
+        isPaused,
+        isPausedRef: isPausedRef.current,
+        isDownloading,
+        isDownloadingRef: isDownloadingRef.current,
+      });
+
       for (const phrase of searchPhrases) {
         console.log('🔄 Processing phrase:', phrase);
         console.log('💫 Current state:', {
@@ -462,8 +500,24 @@ export function ScriptDetailPage({
         });
 
         // Check if paused before each download
+        let pauseCheckCount = 0;
         while (isPausedRef.current) {
-          console.log('⏸️ Downloads paused, waiting...');
+          console.log('⏸️ Downloads paused, waiting...', {
+            pauseCheckCount,
+            isPausedRef: isPausedRef.current,
+            isPausedState: isPaused,
+            isDownloadingRef: isDownloadingRef.current,
+          });
+
+          // Safety mechanism to prevent infinite loops
+          pauseCheckCount++;
+          if (pauseCheckCount > 10) {
+            console.error('❌ Pause loop detected, forcing resume');
+            isPausedRef.current = false;
+            setIsPaused(false);
+            break;
+          }
+
           setDownloadStats(prev => ({
             ...prev,
             currentItem: 'Downloads paused - Click Resume to continue',
