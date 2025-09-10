@@ -972,6 +972,247 @@ const scriptsRoutes: FastifyPluginCallback = (
     }
   });
 
+  // Approve script (status transition to script_approved)
+  fastify.post<{
+    Params: { id: string };
+  }>('/:id/approve', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      fastify.log.info('Script approval requested', {
+        requestedId: id,
+        method: request.method,
+        url: request.url,
+      });
+
+      // Find the script by either script version ID or post ID
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      fastify.log.info('Script lookup result', {
+        requestedId: id,
+        scriptFound: !!script,
+        scriptData: script
+          ? {
+              scriptId: script.id,
+              postId: script.post_id,
+              postStatus: script.post_status,
+            }
+          : null,
+      });
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      // Check if already approved - if so, return success
+      if (script.post_status === 'script_approved') {
+        fastify.log.info('Script already approved, returning success', {
+          scriptId: script.id,
+          postId: script.post_id,
+          currentStatus: script.post_status,
+        });
+
+        return reply.send({
+          success: true,
+          message: 'Script is already approved',
+          status: 'script_approved',
+          alreadyApproved: true,
+        });
+      }
+
+      // Transition post status to script_approved
+      const statusResult = await statusService.transitionStatus({
+        postId: script.post_id,
+        targetStatus: 'script_approved',
+        triggerEvent: 'user_approval',
+        metadata: {
+          scriptId: script.id,
+          triggeredBy: 'api_endpoint',
+        },
+      });
+
+      if (!statusResult.success) {
+        return reply.code(400).send({
+          success: false,
+          error: `Cannot approve script: ${statusResult.error}`,
+          currentStatus: statusResult.oldStatus,
+        });
+      }
+
+      fastify.log.info('Script approved successfully', {
+        scriptId: script.id,
+        postId: script.post_id,
+        statusTransition: {
+          from: statusResult.oldStatus,
+          to: statusResult.newStatus,
+        },
+      });
+
+      reply.send({
+        success: true,
+        message: 'Script approved successfully',
+        status: statusResult.newStatus,
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Script approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Script approval failed',
+      });
+    }
+  });
+
+  // Mark assets as ready (status transition to assets_ready)
+  fastify.post<{
+    Params: { id: string };
+  }>('/:id/assets-ready', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      fastify.log.info('Assets ready transition requested', {
+        requestedId: id,
+      });
+
+      // Find the script by either script version ID or post ID
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      // Check if already in assets_ready status - if so, return success
+      if (script.post_status === 'assets_ready') {
+        fastify.log.info('Assets already marked as ready', {
+          scriptId: script.id,
+          postId: script.post_id,
+          currentStatus: script.post_status,
+        });
+
+        return reply.send({
+          success: true,
+          message: 'Assets are already marked as ready',
+          status: 'assets_ready',
+          alreadyReady: true,
+        });
+      }
+
+      // Transition post status to assets_ready
+      const statusResult = await statusService.transitionStatus({
+        postId: script.post_id,
+        targetStatus: 'assets_ready',
+        triggerEvent: 'assets_downloaded',
+        metadata: {
+          scriptId: script.id,
+          triggeredBy: 'api_endpoint',
+        },
+      });
+
+      if (!statusResult.success) {
+        return reply.code(400).send({
+          success: false,
+          error: `Cannot mark assets as ready: ${statusResult.error}`,
+          currentStatus: statusResult.oldStatus,
+        });
+      }
+
+      fastify.log.info('Assets marked as ready successfully', {
+        scriptId: script.id,
+        postId: script.post_id,
+        statusTransition: {
+          from: statusResult.oldStatus,
+          to: statusResult.newStatus,
+        },
+      });
+
+      reply.send({
+        success: true,
+        message: 'Assets marked as ready successfully',
+        status: statusResult.newStatus,
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Assets ready transition failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Assets ready transition failed',
+      });
+    }
+  });
+
+  // Pause download for script
+  fastify.post<{
+    Params: { id: string };
+  }>('/:id/download/pause', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Store pause state in memory or database
+      // For now, we'll just return success as the frontend handles the pause logic
+      fastify.log.info('Download pause requested', { scriptId: id });
+
+      reply.send({
+        success: true,
+        message: 'Download paused',
+        status: 'paused',
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Download pause failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to pause download',
+      });
+    }
+  });
+
+  // Resume download for script
+  fastify.post<{
+    Params: { id: string };
+  }>('/:id/download/resume', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Clear pause state
+      fastify.log.info('Download resume requested', { scriptId: id });
+
+      reply.send({
+        success: true,
+        message: 'Download resumed',
+        status: 'downloading',
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Download resume failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to resume download',
+      });
+    }
+  });
+
   done();
 };
 
