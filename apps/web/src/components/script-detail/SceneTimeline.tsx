@@ -17,6 +17,8 @@ interface SceneTimelineProps {
   currentContent?: string; // Add current script content for accurate sentence counting
   scriptId?: string; // Script ID for file naming
   onSceneUpdate?: (sceneId: number, updates: Partial<SceneMetadata>) => void;
+  downloadingScenes?: Set<number>; // Scenes currently downloading from parent
+  downloadedScenes?: Set<number>; // Scenes already downloaded from parent
 }
 
 export function SceneTimeline({
@@ -24,6 +26,8 @@ export function SceneTimeline({
   currentContent,
   scriptId,
   onSceneUpdate,
+  downloadingScenes: parentDownloadingScenes,
+  downloadedScenes: parentDownloadedScenes,
 }: SceneTimelineProps) {
   const [searchPhrases, setSearchPhrases] = useState<SearchPhrase[]>([]);
   const [isGeneratingPhrases, setIsGeneratingPhrases] = useState(false);
@@ -114,6 +118,7 @@ export function SceneTimeline({
         console.log(
           `✅ Downloaded ${assetType} for scene ${sceneId}! File: ${result.data.filename}`
         );
+        console.log(`📁 File saved to: ${result.data.downloadPath}`);
       } else {
         alert(`❌ Download failed: ${result.error || 'Unknown error'}`);
       }
@@ -621,8 +626,13 @@ export function SceneTimeline({
                   {(() => {
                     const searchPhrase = getSearchPhrase(scene.id);
                     const assetType = scene.duration < 4 ? 'photo' : 'video';
-                    const isDownloading = downloadingScenes.has(scene.id);
-                    const isDownloaded = downloadedScenes.has(scene.id);
+                    // Use parent state if available, otherwise fall back to local state
+                    const isDownloading =
+                      parentDownloadingScenes?.has(scene.id) ||
+                      downloadingScenes.has(scene.id);
+                    const isDownloaded =
+                      parentDownloadedScenes?.has(scene.id) ||
+                      downloadedScenes.has(scene.id);
 
                     if (searchPhrase) {
                       return (

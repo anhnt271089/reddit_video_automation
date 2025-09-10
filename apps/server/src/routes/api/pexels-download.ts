@@ -126,6 +126,70 @@ const pexelsDownloadRoutes: FastifyPluginAsync = async function (fastify) {
   );
 
   /**
+   * GET /api/pexels-download/serve/{scriptId}/{sentenceId}/{assetType}
+   * Serve downloaded asset files
+   */
+  fastify.get<{
+    Params: {
+      scriptId: string;
+      sentenceId: string;
+      assetType: 'photo' | 'video';
+    };
+  }>('/serve/:scriptId/:sentenceId/:assetType', async (request, reply) => {
+    try {
+      const { scriptId, sentenceId, assetType } = request.params;
+      const { join } = await import('path');
+      const { createReadStream, existsSync } = await import('fs');
+
+      // Generate the expected filename - using the same path as pexelsService
+      const shortId = scriptId.slice(0, 8);
+      const assetsDir = join(
+        process.cwd(),
+        '../../assets',
+        shortId,
+        `${assetType}s`
+      );
+
+      // Find the file matching the pattern
+      const { readdirSync } = await import('fs');
+      const files = readdirSync(assetsDir).filter(file =>
+        file.includes(`scene_${sentenceId}_`)
+      );
+
+      if (files.length === 0) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Asset file not found',
+        });
+      }
+
+      const filePath = join(assetsDir, files[0]);
+
+      if (!existsSync(filePath)) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Asset file not found',
+        });
+      }
+
+      // Set appropriate headers for download
+      const mimeType = assetType === 'photo' ? 'image/jpeg' : 'video/mp4';
+      reply.header('Content-Type', mimeType);
+      reply.header('Content-Disposition', `attachment; filename="${files[0]}"`);
+
+      // Stream the file
+      const stream = createReadStream(filePath);
+      return reply.send(stream);
+    } catch (error) {
+      logger.error('Failed to serve asset:', error);
+      reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to serve asset',
+      });
+    }
+  });
+
+  /**
    * GET /api/pexels-download/test/{searchPhrase}
    * Test search functionality
    */
