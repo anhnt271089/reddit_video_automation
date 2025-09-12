@@ -1,6 +1,12 @@
-// Use Fastify's WebSocket type instead of 'ws' package
-// import { WebSocket } from 'ws';
 import { logger } from '../utils/logger.js';
+
+// WebSocket ready states constants
+const WEBSOCKET_READY_STATE = {
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3,
+} as const;
 
 interface WebSocketClient {
   id: string;
@@ -61,7 +67,7 @@ export class WebSocketService {
 
     this.clients.forEach((client, clientId) => {
       try {
-        if (client.socket.readyState === WebSocket.OPEN) {
+        if (client.socket.readyState === WEBSOCKET_READY_STATE.OPEN) {
           client.socket.send(payload);
           successCount++;
         } else {

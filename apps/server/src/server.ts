@@ -47,6 +47,9 @@ async function buildServer() {
       fastify.get('/ws', { websocket: true }, (connection, request) => {
         logger.info('WebSocket connection established');
 
+        // Register client with WebSocket service
+        const clientId = wsService.addClient(connection.socket);
+
         connection.socket.on('message', (message: any) => {
           // Parse and handle message properly
           try {
