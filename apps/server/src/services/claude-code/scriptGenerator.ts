@@ -1362,10 +1362,89 @@ Remember: ${analysis.actionableInsights[2] || 'Progress beats perfection, and co
       .replace(/e\.g\./g, 'eg');
 
     // Split by sentence-ending punctuation followed by space and capital letter
-    return processedText
+    const initialSentences = processedText
       .split(/(?<=[.!?])\s+(?=[A-Z])/)
       .filter(s => s.trim().length > 0)
       .map(s => s.trim());
+
+    // Further split long sentences for better video display
+    const MAX_WORDS_PER_SENTENCE = 20; // Optimal for video text display
+    const finalSentences: string[] = [];
+
+    initialSentences.forEach(sentence => {
+      const words = sentence.split(/\s+/);
+
+      if (words.length <= MAX_WORDS_PER_SENTENCE) {
+        finalSentences.push(sentence);
+      } else {
+        // Split long sentences at natural break points
+        // Try to split at conjunctions, semicolons, or commas
+        const breakPoints = [
+          /\s+but\s+/i,
+          /\s+and\s+/i,
+          /\s+or\s+/i,
+          /\s+so\s+/i,
+          /\s+yet\s+/i,
+          /\s+because\s+/i,
+          /\s+when\s+/i,
+          /\s+while\s+/i,
+          /\s+although\s+/i,
+          /\s+if\s+/i,
+          /;\s*/,
+          /,\s+which\s+/i,
+          /,\s+that\s+/i,
+          /,\s+and\s+/i,
+          /,\s+but\s+/i,
+          /:\s*/,
+          /\s+-\s+/,
+          /,\s*/, // Last resort: any comma
+        ];
+
+        let splitSuccessful = false;
+
+        for (const breakPoint of breakPoints) {
+          if (sentence.match(breakPoint)) {
+            const parts = sentence.split(breakPoint);
+            if (parts.length === 2 && parts[0].split(/\s+/).length >= 5) {
+              // Capitalize first letter of second part if needed
+              let secondPart = parts[1].trim();
+              if (secondPart.length > 0) {
+                secondPart =
+                  secondPart.charAt(0).toUpperCase() + secondPart.slice(1);
+              }
+
+              // Add appropriate punctuation if missing
+              let firstPart = parts[0].trim();
+              if (!firstPart.match(/[.!?]$/)) {
+                firstPart += '.';
+              }
+              if (!secondPart.match(/[.!?]$/)) {
+                secondPart += '.';
+              }
+
+              finalSentences.push(firstPart);
+              finalSentences.push(secondPart);
+              splitSuccessful = true;
+              break;
+            }
+          }
+        }
+
+        // If no natural break point found, force split at word boundary
+        if (!splitSuccessful) {
+          const midPoint = Math.floor(words.length / 2);
+          const firstHalf = words.slice(0, midPoint).join(' ');
+          const secondHalf = words.slice(midPoint).join(' ');
+
+          finalSentences.push(firstHalf + '.');
+          finalSentences.push(
+            secondHalf.charAt(0).toUpperCase() + secondHalf.slice(1)
+          );
+        }
+      }
+    });
+
+    return finalSentences;
   }
 
   /**

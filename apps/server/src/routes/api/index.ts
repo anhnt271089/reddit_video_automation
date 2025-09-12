@@ -4,6 +4,7 @@ import scriptsRoutes from './scripts.js';
 import testScriptsRoutes from '../test-scripts.js';
 import searchPhraseRoutes from './search-phrases.js';
 import pexelsDownloadRoutes from './pexels-download.js';
+import { videoGenerationRoutes } from './video-generation.js';
 
 export async function apiRoutes(fastify: FastifyInstance) {
   // API route prefix
@@ -20,6 +21,9 @@ export async function apiRoutes(fastify: FastifyInstance) {
 
       // Register Pexels Download API routes
       fastify.register(pexelsDownloadRoutes, { prefix: '/pexels-download' });
+
+      // Register Video Generation API routes
+      fastify.register(videoGenerationRoutes);
 
       // Register Test Scripts routes (for development/testing)
       fastify.register(testScriptsRoutes);
