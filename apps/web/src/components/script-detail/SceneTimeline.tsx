@@ -16,6 +16,7 @@ interface SceneTimelineProps {
   scenes: SceneMetadata[];
   currentContent?: string; // Add current script content for accurate sentence counting
   scriptId?: string; // Script ID for file naming
+  scriptStatus?: string; // Script status to control download button visibility
   onSceneUpdate?: (sceneId: number, updates: Partial<SceneMetadata>) => void;
   downloadingScenes?: Set<number>; // Scenes currently downloading from parent
   downloadedScenes?: Set<number>; // Scenes already downloaded from parent
@@ -25,6 +26,7 @@ export function SceneTimeline({
   scenes,
   currentContent,
   scriptId,
+  scriptStatus,
   onSceneUpdate,
   downloadingScenes: parentDownloadingScenes,
   downloadedScenes: parentDownloadedScenes,
@@ -653,6 +655,14 @@ export function SceneTimeline({
                       parentDownloadedScenes?.has(scene.id) ||
                       downloadedScenes.has(scene.id);
 
+                    // Check if assets are already ready (downloaded) based on script status
+                    const allAssetsReady = scriptStatus === 'assets_ready';
+
+                    // Check if downloads are in progress or paused
+                    const downloadInProgress =
+                      scriptStatus === 'assets_downloading' ||
+                      scriptStatus === 'assets_paused';
+
                     if (searchPhrase) {
                       return (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -662,33 +672,76 @@ export function SceneTimeline({
                           <span className="italic flex-1">
                             {searchPhrase.primaryPhrase}
                           </span>
-                          <Button
-                            size="sm"
-                            variant={isDownloaded ? 'success' : 'default'}
-                            disabled={isDownloading || isDownloaded}
-                            onClick={() =>
-                              downloadAsset(
-                                scene.id,
-                                searchPhrase.primaryPhrase,
-                                assetType
-                              )
-                            }
-                            className={`ml-2 transition-all duration-200 ${
-                              isDownloaded
-                                ? 'bg-green-500 hover:bg-green-500 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1">
-                              {isDownloading ? (
-                                <>
-                                  <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
-                                  <span className="text-xs">Downloading</span>
-                                </>
-                              ) : isDownloaded ? (
-                                <>
+                          {/* Only show download button if assets are not ready and not managed by parent download */}
+                          {!allAssetsReady && !downloadInProgress && (
+                            <Button
+                              size="sm"
+                              variant={isDownloaded ? 'success' : 'default'}
+                              disabled={isDownloading || isDownloaded}
+                              onClick={() =>
+                                downloadAsset(
+                                  scene.id,
+                                  searchPhrase.primaryPhrase,
+                                  assetType
+                                )
+                              }
+                              className={`ml-2 transition-all duration-200 ${
+                                isDownloaded
+                                  ? 'bg-green-500 hover:bg-green-500 cursor-not-allowed'
+                                  : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1">
+                                {isDownloading ? (
+                                  <>
+                                    <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
+                                    <span className="text-xs">Downloading</span>
+                                  </>
+                                ) : isDownloaded ? (
+                                  <>
+                                    <svg
+                                      className="h-3 w-3 text-white"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                    <span className="text-xs">Downloaded</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg
+                                      className="h-3 w-3 text-white"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                      />
+                                    </svg>
+                                    <span className="text-xs">Download</span>
+                                  </>
+                                )}
+                              </div>
+                            </Button>
+                          )}
+                          {/* Show individual scene status indicators based on actual scene state */}
+                          {downloadInProgress && (
+                            <>
+                              {isDownloaded && (
+                                <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
                                   <svg
-                                    className="h-3 w-3 text-white"
+                                    className="h-3 w-3"
                                     fill="none"
                                     viewBox="0 0 24 24"
                                     stroke="currentColor"
@@ -700,12 +753,19 @@ export function SceneTimeline({
                                       d="M5 13l4 4L19 7"
                                     />
                                   </svg>
-                                  <span className="text-xs">Downloaded</span>
-                                </>
-                              ) : (
-                                <>
+                                  <span>Downloaded</span>
+                                </div>
+                              )}
+                              {isDownloading && (
+                                <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                  <div className="animate-spin h-3 w-3 border border-blue-800 border-t-transparent rounded-full"></div>
+                                  <span>Downloading</span>
+                                </div>
+                              )}
+                              {!isDownloading && !isDownloaded && (
+                                <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
                                   <svg
-                                    className="h-3 w-3 text-white"
+                                    className="h-3 w-3"
                                     fill="none"
                                     viewBox="0 0 24 24"
                                     stroke="currentColor"
@@ -714,14 +774,32 @@ export function SceneTimeline({
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                       strokeWidth={2}
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                     />
                                   </svg>
-                                  <span className="text-xs">Download</span>
-                                </>
+                                  <span>Waiting</span>
+                                </div>
                               )}
+                            </>
+                          )}
+                          {allAssetsReady && (
+                            <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                              <svg
+                                className="h-3 w-3"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              <span>Ready</span>
                             </div>
-                          </Button>
+                          )}
                         </div>
                       );
                     }

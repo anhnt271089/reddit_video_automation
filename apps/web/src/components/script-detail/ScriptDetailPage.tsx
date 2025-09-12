@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -11,6 +11,11 @@ import {
 import { ScriptEditor } from './ScriptEditor';
 import { MetadataPanel } from './MetadataPanel';
 import { SceneTimeline } from './SceneTimeline';
+import { useAppStore } from '../../stores/useAppStore';
+import {
+  useWebSocketContext,
+  useWebSocketSubscription,
+} from '../../contexts/WebSocketContext';
 import type {
   ScriptWithMetadata,
   ClaudeCodeMetadata,
@@ -43,6 +48,10 @@ export function ScriptDetailPage({
   const [isApproved, setIsApproved] = useState(false);
   const [allAssetsDownloaded, setAllAssetsDownloaded] = useState(false);
 
+  // Use WebSocket from context (already connected at app level)
+  const { isConnected } = useWebSocketContext();
+  const { lastMessage } = useAppStore();
+
   const [downloadStats, setDownloadStats] = useState<{
     total: number;
     completed: number;
@@ -74,6 +83,266 @@ export function ScriptDetailPage({
       isPausedRef: isPausedRef.current,
     });
   }, [isPaused]);
+
+  // WebSocket message handler for asset download events
+  const handleWebSocketMessage = useCallback(
+    (event: MessageEvent) => {
+      if (!script) {
+        return;
+      }
+
+      try {
+        const message = JSON.parse(event.data);
+        console.log('📡 Received WebSocket message:', message);
+
+        // Extract the actual message from broadcast wrapper
+        const actualMessage = message.data || message;
+        const messageType =
+          actualMessage.type ||
+          actualMessage.event ||
+          message.type ||
+          message.event;
+
+        // Handle asset download events
+        if (
+          messageType === 'asset_download_progress' &&
+          actualMessage.payload?.scriptId === script.id
+        ) {
+          const {
+            completed,
+            total,
+            currentAsset,
+            sceneId,
+            status,
+            progress,
+            photos,
+            videos,
+          } = actualMessage.payload;
+          console.log('📥 Asset download progress:', {
+            completed,
+            total,
+            currentAsset,
+            sceneId,
+            status,
+            progress,
+            photos,
+            videos,
+          });
+
+          // Update individual scene status
+          if (sceneId) {
+            if (status === 'processing') {
+              setDownloadingScenes(prev => new Set(prev).add(sceneId));
+            } else if (status === 'completed') {
+              setDownloadingScenes(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(sceneId);
+                return newSet;
+              });
+              setDownloadedScenes(prev => new Set(prev).add(sceneId));
+            }
+          }
+
+          // Update overall progress based on completed assets, not individual job progress
+          const overallProgress = total > 0 ? (completed / total) * 100 : 0;
+          setDownloadProgress(overallProgress);
+
+          // Update download stats with real-time data from backend
+          setDownloadStats(prev => ({
+            ...prev,
+            completed,
+            total,
+            currentItem:
+              currentAsset || `${completed}/${total} assets completed`,
+            // Use photo/video data directly from backend if available
+            photos: photos || prev.photos,
+            videos: videos || prev.videos,
+          }));
+
+          // Mark as complete if all done
+          if (completed === total && total > 0) {
+            setAllAssetsDownloaded(true);
+            setIsDownloading(false);
+            isDownloadingRef.current = false;
+          }
+        }
+
+        // Handle asset download started events
+        if (
+          messageType === 'asset_download_started' &&
+          actualMessage.payload?.scriptId === script.id
+        ) {
+          const { sceneId, assetType } = actualMessage.payload;
+          console.log('🚀 Asset download started:', { sceneId, assetType });
+
+          if (sceneId) {
+            setDownloadingScenes(prev => new Set(prev).add(sceneId));
+          }
+
+          setIsDownloading(true);
+          isDownloadingRef.current = true;
+        }
+
+        // Handle asset download status changes
+        if (
+          messageType === 'asset_download_status_change' &&
+          (actualMessage.payload?.scriptId === script.id ||
+            actualMessage.payload?.postId === script.postId)
+        ) {
+          const { status } = actualMessage.payload;
+          console.log('🔄 Asset download status changed:', status);
+
+          if (status === 'paused') {
+            setIsPaused(true);
+            isPausedRef.current = true;
+            setDownloadStats(prev => ({
+              ...prev,
+              currentItem: 'Downloads paused',
+            }));
+          } else if (status === 'resumed') {
+            setIsPaused(false);
+            isPausedRef.current = false;
+            setIsDownloading(true);
+            isDownloadingRef.current = true;
+            setDownloadStats(prev => ({
+              ...prev,
+              currentItem: 'Resuming downloads...',
+            }));
+          }
+        }
+
+        // Handle asset download completed
+        if (
+          messageType === 'asset_download_completed' &&
+          actualMessage.payload?.scriptId === script.id
+        ) {
+          console.log('✅ All assets downloaded for script');
+          setAllAssetsDownloaded(true);
+          setIsDownloading(false);
+          isDownloadingRef.current = false;
+
+          // Check status again to get final state
+          checkAssetDownloadStatus(script.id);
+        }
+
+        // Handle asset download failed
+        if (
+          messageType === 'asset_download_failed' &&
+          actualMessage.payload?.scriptId === script.id
+        ) {
+          const { sceneId, error } = actualMessage.payload;
+          console.error('❌ Asset download failed:', { sceneId, error });
+
+          if (sceneId) {
+            setDownloadingScenes(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(sceneId);
+              return newSet;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    },
+    [script]
+  );
+
+  // Subscribe to WebSocket messages for real-time updates
+  useWebSocketSubscription(handleWebSocketMessage);
+
+  // Check asset download status from backend
+  const checkAssetDownloadStatus = async (idToUse: string) => {
+    try {
+      console.log('🔍 Checking asset download status for:', idToUse);
+      const response = await fetch(
+        `http://localhost:3001/api/scripts/${idToUse}/assets/status`
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📊 Asset download status:', result);
+
+        if (result.success && result.jobs && result.jobs.length > 0) {
+          const jobs = result.jobs;
+          const completed = jobs.filter(
+            (job: any) => job.status === 'completed'
+          ).length;
+          const processing = jobs.filter(
+            (job: any) => job.status === 'processing'
+          ).length;
+          const failed = jobs.filter(
+            (job: any) => job.status === 'failed'
+          ).length;
+          const total = jobs.length;
+
+          console.log('📈 Asset job summary:', {
+            total,
+            completed,
+            processing,
+            failed,
+            percentage: Math.round((completed / total) * 100),
+          });
+
+          // Update progress based on backend status
+          const calculatedProgress = (completed / total) * 100;
+          setDownloadProgress(calculatedProgress);
+
+          // Update download stats
+          const photoJobs = jobs.filter(
+            (job: any) => job.asset_type === 'photo'
+          );
+          const videoJobs = jobs.filter(
+            (job: any) => job.asset_type === 'video'
+          );
+
+          setDownloadStats(prev => ({
+            ...prev,
+            total,
+            completed,
+            photos: {
+              total: photoJobs.length,
+              completed: photoJobs.filter(
+                (job: any) => job.status === 'completed'
+              ).length,
+            },
+            videos: {
+              total: videoJobs.length,
+              completed: videoJobs.filter(
+                (job: any) => job.status === 'completed'
+              ).length,
+            },
+            currentItem:
+              processing > 0
+                ? `Processing ${processing} asset${processing > 1 ? 's' : ''}...`
+                : completed === total
+                  ? 'All assets downloaded successfully!'
+                  : `${completed}/${total} assets completed`,
+          }));
+
+          // Set scene download states
+          const completedScenes = jobs
+            .filter((job: any) => job.status === 'completed')
+            .map((job: any) => job.scene_id);
+          const processingScenes = jobs
+            .filter((job: any) => job.status === 'processing')
+            .map((job: any) => job.scene_id);
+
+          setDownloadedScenes(new Set(completedScenes));
+          setDownloadingScenes(new Set(processingScenes));
+
+          // If all completed, mark as done
+          if (completed === total && total > 0) {
+            setAllAssetsDownloaded(true);
+            setIsDownloading(false);
+            isDownloadingRef.current = false;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check asset download status:', error);
+    }
+  };
 
   // Initialize photo/video counts when script loads
   useEffect(() => {
@@ -124,6 +393,28 @@ export function ScriptDetailPage({
             if (data.script.status === 'script_approved') {
               console.log('Setting isApproved to true');
               setIsApproved(true);
+            } else if (data.script.status === 'assets_downloading') {
+              console.log(
+                'Setting isApproved, hasStartedDownload, and isDownloading to true'
+              );
+              setIsApproved(true);
+              setHasStartedDownload(true);
+              setIsDownloading(true);
+              // Check current asset download status
+              await checkAssetDownloadStatus(data.script.postId || scriptId);
+            } else if (data.script.status === 'assets_paused') {
+              console.log(
+                'Setting isApproved, hasStartedDownload, and isPaused to true'
+              );
+              setIsApproved(true);
+              setHasStartedDownload(true);
+              setIsPaused(true);
+              // Check current asset download status
+              await checkAssetDownloadStatus(data.script.postId || scriptId);
+            } else if (data.script.status === 'assets_ready') {
+              console.log('Setting isApproved and allAssetsDownloaded to true');
+              setIsApproved(true);
+              setAllAssetsDownloaded(true);
             }
           } else {
             setError('Script not found');
@@ -194,6 +485,7 @@ export function ScriptDetailPage({
 
   const handlePauseResume = async () => {
     if (!script) {
+      console.error('No script available for pause/resume');
       return;
     }
 
@@ -207,45 +499,102 @@ export function ScriptDetailPage({
         action: isPaused ? 'resume' : 'pause',
       });
 
-      const response = await fetch(
-        `http://localhost:3001/api/scripts/${idToUse}/download/${isPaused ? 'resume' : 'pause'}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        }
-      );
+      // For now, since the backend queue handles pause/resume automatically,
+      // we just need to cancel the jobs to pause, or resume existing jobs to resume
+      if (isPaused) {
+        // Resume - use dedicated resume endpoint instead of creating new jobs
+        const response = await fetch(
+          `http://localhost:3001/api/scripts/${idToUse}/assets/resume`,
+          {
+            method: 'POST',
+          }
+        );
 
-      if (response.ok) {
-        const newPausedState = !isPaused;
-        setIsPaused(newPausedState);
-        isPausedRef.current = newPausedState;
-        setDownloadStats(prev => ({
-          ...prev,
-          currentItem: isPaused ? 'Resuming downloads...' : 'Downloads paused',
-        }));
+        const result = await response.json();
+        console.log('🎛️ Resume response:', result);
+
+        if (response.ok) {
+          setIsPaused(false);
+          isPausedRef.current = false;
+          setIsDownloading(true);
+          isDownloadingRef.current = true;
+          setDownloadStats(prev => ({
+            ...prev,
+            currentItem: 'Resuming downloads...',
+          }));
+          console.log('✅ Download resumed successfully');
+        } else {
+          console.error('❌ Resume failed:', result);
+          alert(
+            `Failed to resume download: ${result.error || 'Unknown error'}`
+          );
+        }
+      } else {
+        // Pause - cancel current jobs
+        const response = await fetch(
+          `http://localhost:3001/api/scripts/${idToUse}/assets/cancel`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        const result = await response.json();
+        console.log('🎛️ Cancel response:', result);
+
+        if (response.ok) {
+          setIsPaused(true);
+          isPausedRef.current = true;
+          setIsDownloading(false);
+          isDownloadingRef.current = false;
+          setDownloadStats(prev => ({
+            ...prev,
+            currentItem: 'Downloads paused',
+          }));
+          console.log('✅ Download paused successfully');
+        } else {
+          console.error('❌ Pause failed:', result);
+          alert(`Failed to pause download: ${result.error || 'Unknown error'}`);
+        }
       }
     } catch (error) {
-      console.error('Failed to toggle pause/resume:', error);
+      console.error('❌ Failed to toggle pause/resume:', error);
+      alert(
+        `Error: ${error instanceof Error ? error.message : 'Failed to toggle download state'}`
+      );
     }
   };
 
   // Multi-state button action handler
   const handleMainAction = async () => {
+    console.log('🔘 Button clicked, current state:', {
+      isApproved,
+      hasStartedDownload,
+      isDownloading,
+      isPaused,
+      allAssetsDownloaded,
+    });
+
     if (!isApproved) {
       // State: Approve Script
+      console.log('👉 Action: Approve Script');
       await handleApproveScript();
     } else if (!hasStartedDownload) {
       // State: Download Assets
+      console.log('👉 Action: Download Assets');
       await handleDownloadAssets();
     } else if (isDownloading && !isPaused) {
       // State: Pause Download
+      console.log('👉 Action: Pause Download');
       await handlePauseResume();
     } else if (isPaused) {
       // State: Resume Download
+      console.log('👉 Action: Resume Download');
       await handlePauseResume();
+    } else {
+      console.log('⚠️ No action matched current state');
     }
   };
 
@@ -388,328 +737,62 @@ export function ScriptDetailPage({
     isDownloadingRef.current = true;
     isPausedRef.current = false;
 
-    // Force debug the initial state
-    console.log('🔧 Setting download state:', {
-      beforeSet: {
-        isPaused,
-        isPausedRef: isPausedRef.current,
-        isDownloading,
-        isDownloadingRef: isDownloadingRef.current,
-      },
-      afterSet: {
-        isPaused: false,
-        isPausedRef: false,
-        isDownloading: true,
-        isDownloadingRef: true,
-      },
-    });
-
-    // Double check the refs are actually set correctly
-    console.log('🔧 Verifying refs after setting:', {
-      isPausedRef: isPausedRef.current,
-      isDownloadingRef: isDownloadingRef.current,
-    });
+    console.log('🚀 Starting background asset download via API');
 
     try {
-      // First, generate search phrases for all scenes
-      const scenes = script.metadata.scenes || [];
+      // Use the backend asset download API instead of frontend loop
+      const idToUse = script.postId || scriptId;
 
-      // Prepare sentences data for search phrase generation
-      const sentences = scenes.map(scene => ({
-        id: scene.id,
-        content: scene.narration || scene.content || '',
-        duration: scene.duration,
-        assetType: scene.duration < 4 ? 'photo' : 'video',
+      setDownloadStats(prev => ({
+        ...prev,
+        currentItem: 'Starting background download...',
       }));
 
-      // Count photos and videos
-      const photoCount = sentences.filter(s => s.assetType === 'photo').length;
-      const videoCount = sentences.filter(s => s.assetType === 'video').length;
-
-      setDownloadStats({
-        total: sentences.length,
-        completed: 0,
-        currentItem: 'Generating search phrases...',
-        photos: { total: photoCount, completed: 0 },
-        videos: { total: videoCount, completed: 0 },
-      });
-      setDownloadProgress(5);
-
-      // Generate search phrases
-      const searchResponse = await fetch(
-        'http://localhost:3001/api/search-phrases/generate',
+      const response = await fetch(
+        `http://localhost:3001/api/scripts/${idToUse}/assets/download`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ sentences }),
+          body: JSON.stringify({}), // Use default scenes from script
         }
       );
 
-      if (!searchResponse.ok) {
-        throw new Error('Failed to generate search phrases');
-      }
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Background asset download started:', result);
 
-      const searchResult = await searchResponse.json();
-      const searchPhrases = searchResult.data || [];
-
-      console.log('🔍 Search phrases generated:', {
-        searchPhrases,
-        count: searchPhrases.length,
-        searchResult,
-        isSuccess: searchResult.success,
-      });
-
-      if (searchPhrases.length === 0) {
-        console.error('❌ No search phrases generated!', { searchResult });
-        throw new Error('No search phrases were generated');
-      }
-
-      setDownloadProgress(10);
-      setDownloadStats(prev => ({
-        ...prev,
-        currentItem: 'Starting asset downloads...',
-      }));
-
-      // Download assets for each scene
-      let completed = 0;
-      let photosCompleted = 0;
-      let videosCompleted = 0;
-
-      console.log(
-        'Starting download loop for',
-        searchPhrases.length,
-        'phrases'
-      );
-
-      console.log('🚀 Initial state before loop:', {
-        isPaused,
-        isPausedRef: isPausedRef.current,
-        isDownloading,
-        isDownloadingRef: isDownloadingRef.current,
-      });
-
-      for (const phrase of searchPhrases) {
-        console.log('🔄 Processing phrase:', phrase);
-        console.log('💫 Current state:', {
-          isDownloading: isDownloadingRef.current,
-          isPaused: isPausedRef.current,
-          completed,
-          totalPhrases: searchPhrases.length,
-        });
-
-        // Check if paused before each download
-        let pauseCheckCount = 0;
-        while (isPausedRef.current) {
-          console.log('⏸️ Downloads paused, waiting...', {
-            pauseCheckCount,
-            isPausedRef: isPausedRef.current,
-            isPausedState: isPaused,
-            isDownloadingRef: isDownloadingRef.current,
-          });
-
-          // Safety mechanism to prevent infinite loops
-          pauseCheckCount++;
-          if (pauseCheckCount > 10) {
-            console.error('❌ Pause loop detected, forcing resume');
-            isPausedRef.current = false;
-            setIsPaused(false);
-            break;
-          }
-
-          setDownloadStats(prev => ({
-            ...prev,
-            currentItem: 'Downloads paused - Click Resume to continue',
-          }));
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          // Re-check if we need to break out of the entire loop
-          if (!isDownloadingRef.current) {
-            break;
-          }
-        }
-
-        // If stopped downloading, break out
-        if (!isDownloadingRef.current) {
-          console.log('🛑 Download stopped, breaking out of loop');
-          break;
-        }
-
-        const scene = scenes.find(s => s.id === phrase.sentenceId);
-        if (!scene) {
-          console.warn('⚠️ Scene not found for sentenceId:', phrase.sentenceId);
-          continue;
-        }
-
-        console.log('✅ Found scene for phrase:', {
-          sceneId: scene.id,
-          phraseId: phrase.sentenceId,
-        });
-
-        const assetType = scene.duration < 4 ? 'photo' : 'video';
-
-        // Update downloading state
-        setDownloadingScenes(prev => new Set(prev).add(phrase.sentenceId));
-
-        setDownloadStats(prev => ({
-          ...prev,
-          currentItem: `Downloading ${assetType}: "${phrase.primaryPhrase}"`,
-        }));
-
-        try {
-          console.log(
-            `🔄 Calling download API for scene ${phrase.sentenceId}:`,
-            {
-              searchPhrase: phrase.primaryPhrase,
-              assetType,
-              scriptId,
-              sentenceId: phrase.sentenceId,
-            }
-          );
-
-          const downloadResponse = await fetch(
-            'http://localhost:3001/api/pexels-download/search-and-download',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                searchPhrase: phrase.primaryPhrase,
-                assetType,
-                scriptId,
-                sentenceId: phrase.sentenceId,
-              }),
-            }
-          );
-
-          const downloadResult = await downloadResponse.json();
-
-          console.log(
-            `📥 Download API response for scene ${phrase.sentenceId}:`,
-            {
-              status: downloadResponse.status,
-              success: downloadResult.success,
-              result: downloadResult,
-            }
-          );
-
-          if (downloadResponse.ok && downloadResult.success) {
-            console.log(
-              `✅ Downloaded ${assetType} for scene ${phrase.sentenceId}:`,
-              downloadResult.data.filename
-            );
-            console.log(
-              `📁 File saved to: ${downloadResult.data.downloadPath}`
-            );
-
-            setDownloadedScenes(prev => new Set(prev).add(phrase.sentenceId));
-
-            if (assetType === 'photo') {
-              photosCompleted++;
-              console.log(`📸 Photos completed: ${photosCompleted}`);
-            } else {
-              videosCompleted++;
-              console.log(`🎥 Videos completed: ${videosCompleted}`);
-            }
-          } else {
-            console.warn(
-              `⚠️ Download failed for scene ${phrase.sentenceId}:`,
-              downloadResult.error
-            );
-            console.warn('Full download response:', downloadResult);
-          }
-        } catch (downloadError) {
-          console.error(
-            `❌ Download error for scene ${phrase.sentenceId}:`,
-            downloadError
-          );
-        }
-
-        // Remove from downloading state
-        setDownloadingScenes(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(phrase.sentenceId);
-          return newSet;
-        });
-
-        completed++;
-        const progress = 10 + (completed / searchPhrases.length) * 85;
-        setDownloadProgress(progress);
-
-        console.log(
-          `📊 Progress update: ${completed}/${searchPhrases.length} (${Math.round(progress)}%)`
+        // Update local script status immediately
+        setScript(prev =>
+          prev ? { ...prev, status: 'assets_downloading' } : null
         );
 
         setDownloadStats(prev => ({
           ...prev,
-          completed,
-          photos: { ...prev.photos, completed: photosCompleted },
-          videos: { ...prev.videos, completed: videosCompleted },
-          currentItem: `Downloaded ${completed}/${searchPhrases.length} assets`,
+          currentItem: 'Background download in progress...',
         }));
 
-        // Add a small delay between downloads to see progress and allow pause/resume to work
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      setDownloadProgress(100);
-      setDownloadStats(prev => ({
-        ...prev,
-        currentItem: 'All assets downloaded successfully!',
-      }));
-
-      // Only mark as complete if we actually processed all assets
-      if (completed >= searchPhrases.length) {
-        setIsDownloading(false);
-        isDownloadingRef.current = false;
-        setAllAssetsDownloaded(true);
-
-        console.log(
-          `🎉 All assets downloaded! Processed ${completed}/${searchPhrases.length} items.`
-        );
-
-        // Transition post status to assets_ready
-        try {
-          const idToUse = script.postId || scriptId;
-          const response = await fetch(
-            `http://localhost:3001/api/scripts/${idToUse}/assets-ready`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Assets marked as ready:', result);
-            setScript(prev =>
-              prev ? { ...prev, status: 'assets_ready' } : null
-            );
-          } else {
-            const errorText = await response.text();
-            console.error('❌ Failed to mark assets as ready:', errorText);
-          }
-        } catch (error) {
-          console.error('❌ Network error marking assets as ready:', error);
-        }
+        // The WebSocket will handle all progress updates from here
       } else {
-        console.log(
-          `⚠️ Download incomplete: ${completed}/${searchPhrases.length} items processed`
+        const errorResult = await response.json();
+        throw new Error(
+          errorResult.error || 'Failed to start background download'
         );
-        setIsDownloading(false);
-        isDownloadingRef.current = false;
       }
     } catch (error) {
-      console.error('Failed to download assets:', error);
+      console.error('Failed to start asset download:', error);
       setDownloadStats(prev => ({
         ...prev,
         currentItem: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       }));
       setIsDownloading(false);
       isDownloadingRef.current = false;
+      setIsPaused(false);
+      isPausedRef.current = false;
+      alert(
+        `Failed to start download: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   };
 
@@ -779,19 +862,25 @@ export function ScriptDetailPage({
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-lg font-medium">Sentence Timeline</h3>
-                  <Badge variant="outline" className="text-sm">
-                    Total:{' '}
-                    {script.metadata?.scenes.reduce(
-                      (total, scene) => total + scene.duration,
-                      0
-                    ) || 0}
-                    s
+                  <Badge
+                    variant="secondary"
+                    className="gap-1.5 font-normal text-sm"
+                  >
+                    <span>
+                      Total:{' '}
+                      {script.metadata?.scenes.reduce(
+                        (total, scene) => total + scene.duration,
+                        0
+                      ) || 0}
+                      s
+                    </span>
                   </Badge>
                 </div>
                 <SceneTimeline
                   scenes={script.metadata?.scenes || []}
                   currentContent={script.content}
                   scriptId={scriptId}
+                  scriptStatus={script.status}
                   onSceneUpdate={handleSceneUpdate}
                   downloadingScenes={downloadingScenes}
                   downloadedScenes={downloadedScenes}
