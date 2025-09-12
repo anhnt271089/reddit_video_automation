@@ -42,7 +42,10 @@ export function VideoLibrary() {
                       Healthcare"
                     </p>
                   </div>
-                  <Badge variant="default">Completed</Badge>
+                  <Badge variant="success" className="gap-1.5 font-normal">
+                    <span className="text-sm">✓</span>
+                    <span>Completed</span>
+                  </Badge>
                 </div>
 
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -89,7 +92,10 @@ export function VideoLibrary() {
                       Working"
                     </p>
                   </div>
-                  <Badge variant="secondary">Rendering</Badge>
+                  <Badge variant="warning" className="gap-1.5 font-normal">
+                    <span className="text-sm">⟳</span>
+                    <span>Rendering</span>
+                  </Badge>
                 </div>
 
                 <div className="space-y-2">
@@ -138,7 +144,10 @@ export function VideoLibrary() {
                       Telling Us"
                     </p>
                   </div>
-                  <Badge variant="destructive">Failed</Badge>
+                  <Badge variant="destructive" className="gap-1.5 font-normal">
+                    <span className="text-sm">×</span>
+                    <span>Failed</span>
+                  </Badge>
                 </div>
 
                 <div className="text-sm text-red-600">
@@ -182,7 +191,10 @@ export function VideoLibrary() {
                       Generated from: "The Future of Solar and Wind Power"
                     </p>
                   </div>
-                  <Badge variant="outline">Queued</Badge>
+                  <Badge variant="secondary" className="gap-1.5 font-normal">
+                    <span className="text-sm">○</span>
+                    <span>Queued</span>
+                  </Badge>
                 </div>
 
                 <div className="text-sm text-muted-foreground">

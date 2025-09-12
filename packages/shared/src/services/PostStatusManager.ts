@@ -20,6 +20,7 @@ export type UnifiedPostStatus =
   | 'script_approved' // Script approved by user
   | 'script_generation_failed' // Script generation failed (NEW)
   | 'rejected' // Post rejected, will not be processed
+  | 'assets_downloading' // Assets being downloaded (NEW)
   | 'assets_ready' // Assets gathered for video creation
   | 'rendering' // Video rendering in progress
   | 'completed' // Video completed successfully
@@ -42,6 +43,7 @@ export const LEGACY_STATUS_MAP: Record<string, UnifiedPostStatus> = {
   script_approved: 'script_approved',
   script_generation_failed: 'script_generation_failed',
   rejected: 'rejected',
+  assets_downloading: 'assets_downloading',
   assets_ready: 'assets_ready',
   rendering: 'rendering',
   completed: 'completed',
@@ -54,7 +56,7 @@ export const STATUS_CATEGORIES = {
   APPROVED: ['idea_selected'] as const,
   GENERATING: ['script_generating'] as const,
   GENERATED: ['script_generated', 'script_approved'] as const,
-  PROCESSING: ['assets_ready', 'rendering'] as const,
+  PROCESSING: ['assets_downloading', 'assets_ready', 'rendering'] as const,
   FINAL: [
     'completed',
     'rejected',
@@ -70,13 +72,14 @@ export const VALID_TRANSITIONS: Record<UnifiedPostStatus, UnifiedPostStatus[]> =
     idea_selected: ['script_generating', 'rejected'],
     script_generating: ['script_generated', 'script_generation_failed'],
     script_generated: ['script_approved', 'rejected', 'script_generating'], // Allow regeneration
-    script_approved: ['assets_ready', 'rejected'],
+    script_approved: ['assets_downloading', 'rejected'],
     script_generation_failed: ['script_generating', 'rejected'], // Allow retry
     rejected: [], // Terminal state
+    assets_downloading: ['assets_ready', 'failed'],
     assets_ready: ['rendering'],
     rendering: ['completed', 'failed'],
     completed: [], // Terminal state
-    failed: ['assets_ready'], // Allow retry from assets
+    failed: ['assets_downloading'], // Allow retry from assets
   };
 
 // Progressive UI configuration - which buttons to show for each status
@@ -145,6 +148,14 @@ export const UI_BUTTON_CONFIG: Record<
     showView: true,
     showGenerate: false,
     showViewScript: false,
+  },
+  assets_downloading: {
+    showApprove: false,
+    showReject: true,
+    showView: true,
+    showGenerate: false,
+    showViewScript: true,
+    primaryAction: 'Downloading Assets...',
   },
   assets_ready: {
     showApprove: false,
@@ -296,7 +307,8 @@ export class PostStatusManager {
       script_approved: 'Script Approved',
       script_generation_failed: 'Script Generation Failed',
       rejected: 'Rejected',
-      assets_ready: 'Assets Ready',
+      assets_downloading: 'Assets Downloading',
+      assets_ready: 'Assets Downloaded',
       rendering: 'Rendering Video',
       completed: 'Video Complete',
       failed: 'Failed',
@@ -305,43 +317,61 @@ export class PostStatusManager {
   }
 
   /**
-   * Get status color/variant for UI theming
+   * Get status color/variant for UI theming with distinct visual styles
    */
   static getStatusVariant(
     status: string
-  ): 'default' | 'secondary' | 'success' | 'warning' | 'destructive' {
+  ):
+    | 'default'
+    | 'secondary'
+    | 'success'
+    | 'info'
+    | 'destructive'
+    | 'outline'
+    | 'warning' {
     const normalized = this.normalizeStatus(status);
 
-    if (this.isInCategory(status, 'INITIAL')) {
-      return 'default';
+    // Distinct color coding for each status type
+    switch (normalized) {
+      case 'script_generated':
+        return 'info'; // Purple - New script ready for review
+      case 'script_approved':
+        return 'success'; // Green - Approved and ready to proceed
+      case 'assets_downloading':
+        return 'warning'; // Orange - Active downloading process
+      case 'assets_ready':
+        return 'secondary'; // Gray - Assets ready, waiting for next step
+      case 'rendering':
+        return 'warning'; // Orange - Active rendering process
+      case 'completed':
+        return 'success'; // Green - Final success state
+      default:
+        return 'outline'; // White with border - fallback
     }
-    if (this.isInCategory(status, 'APPROVED')) {
-      return 'secondary';
-    }
-    if (this.isInCategory(status, 'GENERATED')) {
-      return 'success'; // Script Ready gets green success styling
-    }
-    if (
-      this.isInCategory(status, 'GENERATING') ||
-      this.isInCategory(status, 'PROCESSING')
-    ) {
-      return 'warning';
-    }
-    if (normalized === 'completed') {
-      return 'success';
-    }
+  }
 
-    // Check if it's a terminal failure state
-    const finalStatuses: UnifiedPostStatus[] = [
-      'rejected',
-      'failed',
-      'script_generation_failed',
-    ];
-    if (finalStatuses.includes(normalized)) {
-      return 'destructive';
-    }
+  /**
+   * Get status icon for visual identification
+   */
+  static getStatusIcon(status: string): string {
+    const normalized = this.normalizeStatus(status);
 
-    return 'default';
+    const statusIcons: Record<UnifiedPostStatus, string> = {
+      discovered: '○',
+      idea_selected: '●',
+      script_generating: '⚡',
+      script_generated: '◐',
+      script_approved: '●',
+      script_generation_failed: '◯',
+      rejected: '◯',
+      assets_downloading: '↓',
+      assets_ready: '◑',
+      rendering: '⟳',
+      completed: '✓',
+      failed: '×',
+    };
+
+    return statusIcons[normalized] || '◦';
   }
 }
 

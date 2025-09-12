@@ -217,8 +217,14 @@ export const PostCard: React.FC<PostCardProps> = ({
               {post.title}
             </h3>
             {post.status && (
-              <Badge className={`ml-2 ${getStatusColor(post.status)}`}>
-                {PostStatusManager.getDisplayName(post.status)}
+              <Badge
+                variant={PostStatusManager.getStatusVariant(post.status)}
+                className="ml-2 gap-1.5 font-normal"
+              >
+                <span className="text-sm">
+                  {PostStatusManager.getStatusIcon(post.status)}
+                </span>
+                <span>{PostStatusManager.getDisplayName(post.status)}</span>
               </Badge>
             )}
           </div>

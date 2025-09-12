@@ -316,10 +316,22 @@ export const useAppStore = create<AppState>()(
 
       // Handle WebSocket messages and update relevant state
       handleWebSocketMessage: message => {
-        const { event, postId, scriptId, videoId, status, progress, data } =
-          message.data || message;
+        const {
+          event,
+          type,
+          postId,
+          scriptId,
+          videoId,
+          status,
+          progress,
+          data,
+          payload,
+        } = message.data || message;
 
-        switch (event) {
+        // Handle both 'event' and 'type' field formats
+        const messageType = event || type;
+
+        switch (messageType) {
           case 'post_status_update':
             if (postId && status) {
               get().updatePost(postId, { status: status as Post['status'] });
@@ -356,6 +368,51 @@ export const useAppStore = create<AppState>()(
                 progress_percentage: 100,
               });
             }
+            break;
+
+          case 'asset_download_started':
+            // Asset download started - log for debugging
+            console.log('Asset download started:', payload);
+            break;
+
+          case 'asset_download_progress':
+            // Asset download progress - handled by individual components
+            // that need real-time updates (like ScriptDetailPage)
+            console.log('Asset download progress received:', payload);
+            break;
+
+          case 'asset_download_status_change':
+            // Asset download status change (pause/resume/complete)
+            // Update post status if provided
+            if (payload?.postId && payload?.newStatus) {
+              get().updatePost(payload.postId, {
+                status: payload.newStatus as Post['status'],
+              });
+            }
+            if (payload?.scriptId && payload?.newStatus) {
+              get().updateScript(payload.scriptId, {
+                status: payload.newStatus,
+              });
+            }
+            console.log('Asset download status changed:', payload);
+            break;
+
+          case 'asset_download_completed':
+            // Asset download completed - update post status
+            if (payload?.postId) {
+              get().updatePost(payload.postId, {
+                status: 'assets_ready' as Post['status'],
+              });
+            }
+            if (payload?.scriptId) {
+              get().updateScript(payload.scriptId, { status: 'assets_ready' });
+            }
+            console.log('Asset download completed:', payload);
+            break;
+
+          case 'asset_download_failed':
+            // Asset download failed - handle error state
+            console.error('Asset download failed:', payload);
             break;
         }
 

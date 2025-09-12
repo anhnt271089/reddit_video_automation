@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { PostStatusManager } from '@video-automation/shared-types';
 
 export function Dashboard() {
   return (
@@ -81,7 +82,10 @@ export function Dashboard() {
                   r/technology • 2 hours ago
                 </p>
               </div>
-              <Badge variant="secondary">Processing</Badge>
+              <Badge variant="warning" className="gap-1.5 font-normal">
+                <span className="text-sm">⟳</span>
+                <span>Processing</span>
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -92,7 +96,10 @@ export function Dashboard() {
                   r/science • 4 hours ago
                 </p>
               </div>
-              <Badge variant="default">Completed</Badge>
+              <Badge variant="success" className="gap-1.5 font-normal">
+                <span className="text-sm">✓</span>
+                <span>Completed</span>
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -103,7 +110,10 @@ export function Dashboard() {
                   r/space • 6 hours ago
                 </p>
               </div>
-              <Badge variant="destructive">Failed</Badge>
+              <Badge variant="destructive" className="gap-1.5 font-normal">
+                <span className="text-sm">×</span>
+                <span>Failed</span>
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -118,19 +128,31 @@ export function Dashboard() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm">Reddit API</span>
-              <Badge variant="default">Connected</Badge>
+              <Badge variant="success" className="gap-1.5 font-normal">
+                <span className="text-sm">●</span>
+                <span>Connected</span>
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Claude API</span>
-              <Badge variant="default">Connected</Badge>
+              <Badge variant="success" className="gap-1.5 font-normal">
+                <span className="text-sm">●</span>
+                <span>Connected</span>
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Pexels API</span>
-              <Badge variant="default">Connected</Badge>
+              <Badge variant="success" className="gap-1.5 font-normal">
+                <span className="text-sm">●</span>
+                <span>Connected</span>
+              </Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">ElevenLabs API</span>
-              <Badge variant="secondary">Disconnected</Badge>
+              <Badge variant="outline" className="gap-1.5 font-normal">
+                <span className="text-sm">○</span>
+                <span>Disconnected</span>
+              </Badge>
             </div>
           </CardContent>
         </Card>
