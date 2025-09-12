@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PipelineController } from './pipelineController';
 import { DatabaseService } from './database';
 import { GenerationQueue } from '../queue/generationQueue';
+import { AssetDownloadQueue } from '../queue/assetDownloadQueue';
 import { WebSocketService } from './websocket';
 import { join } from 'path';
 import { existsSync, unlinkSync } from 'fs';
@@ -11,6 +12,25 @@ const mockQueue = {
   start: vi.fn(),
   stop: vi.fn(),
   createJob: vi.fn(),
+  cancelJob: vi.fn(),
+  getQueueStats: vi.fn().mockReturnValue({
+    pending: 0,
+    processing: 0,
+    completed: 0,
+    failed: 0,
+    avgProcessingTime: 0,
+    successRate: 100,
+  }),
+  on: vi.fn(),
+  emit: vi.fn(),
+};
+
+// Mock the asset download queue
+const mockAssetQueue = {
+  start: vi.fn(),
+  stop: vi.fn(),
+  createJob: vi.fn(),
+  createBatchJobs: vi.fn(),
   cancelJob: vi.fn(),
   getQueueStats: vi.fn().mockReturnValue({
     pending: 0,
@@ -53,6 +73,7 @@ describe('PipelineController', () => {
     pipeline = new PipelineController(
       db,
       mockQueue as any,
+      mockAssetQueue as any,
       mockWsService as any,
       {
         autoTrigger: false, // Disable auto-trigger for tests
@@ -300,6 +321,7 @@ describe('PipelineController', () => {
       const autoTriggerPipeline = new PipelineController(
         db,
         mockQueue as any,
+        mockAssetQueue as any,
         mockWsService as any,
         {
           autoTrigger: true,
@@ -337,6 +359,7 @@ describe('PipelineController', () => {
       const autoTriggerPipeline = new PipelineController(
         db,
         mockQueue as any,
+        mockAssetQueue as any,
         mockWsService as any,
         {
           autoTrigger: true,

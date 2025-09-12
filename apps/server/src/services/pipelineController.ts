@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { DatabaseService } from './database';
 import { GenerationQueue } from '../queue/generationQueue';
+import { AssetDownloadQueue } from '../queue/assetDownloadQueue';
 import { WebSocketService } from './websocket';
 import { logger } from '../utils/logger';
 import { ProcessingStatus } from '@video-automation/shared-types';
@@ -27,6 +28,7 @@ interface PipelineMetrics {
 export class PipelineController extends EventEmitter {
   private db: DatabaseService;
   private queue: GenerationQueue;
+  private assetQueue: AssetDownloadQueue;
   private wsService: WebSocketService;
   private isRunning = false;
   private checkInterval?: NodeJS.Timeout;
@@ -47,12 +49,14 @@ export class PipelineController extends EventEmitter {
   constructor(
     db: DatabaseService,
     queue: GenerationQueue,
+    assetQueue: AssetDownloadQueue,
     wsService: WebSocketService,
     options?: PipelineOptions
   ) {
     super();
     this.db = db;
     this.queue = queue;
+    this.assetQueue = assetQueue;
     this.wsService = wsService;
 
     if (options) {
@@ -78,8 +82,9 @@ export class PipelineController extends EventEmitter {
       checkInterval: this.options.checkInterval,
     });
 
-    // Start the queue
+    // Start the queues
     await this.queue.start();
+    await this.assetQueue.start();
 
     // Start monitoring for approved posts
     if (this.options.autoTrigger) {
@@ -102,6 +107,7 @@ export class PipelineController extends EventEmitter {
     }
 
     await this.queue.stop();
+    await this.assetQueue.stop();
 
     logger.info('Pipeline controller stopped');
   }
@@ -262,14 +268,24 @@ export class PipelineController extends EventEmitter {
    * Setup queue event listeners
    */
   private setupQueueListeners(): void {
-    // Listen for completed generations
+    // Listen for completed script generations
     this.queue.on('job:completed', (data: any) => {
       this.handleJobCompleted(data);
     });
 
-    // Listen for failed generations
+    // Listen for failed script generations
     this.queue.on('job:failed', (data: any) => {
       this.handleJobFailed(data);
+    });
+
+    // Listen for completed asset downloads
+    this.assetQueue.on('job:completed', (data: any) => {
+      this.handleAssetDownloadCompleted(data);
+    });
+
+    // Listen for failed asset downloads
+    this.assetQueue.on('job:failed', (data: any) => {
+      this.handleAssetDownloadFailed(data);
     });
   }
 
@@ -431,6 +447,68 @@ export class PipelineController extends EventEmitter {
   }
 
   /**
+   * Trigger asset download for a script's scenes
+   */
+  async triggerAssetDownload(
+    postId: string,
+    scriptId: string,
+    scenes: Array<{
+      sceneId: number;
+      searchPhrase: string;
+      assetType: 'photo' | 'video';
+    }>,
+    priority = 0
+  ): Promise<string[]> {
+    try {
+      // Create batch download jobs
+      const jobs = await this.assetQueue.createBatchJobs(
+        postId,
+        scriptId,
+        scenes,
+        priority
+      );
+
+      // Update post status to assets_downloading
+      this.updatePostStatus(postId, 'assets_downloading');
+
+      // Send notification
+      this.wsService.broadcast({
+        type: 'asset_download_batch_triggered',
+        payload: {
+          postId,
+          scriptId,
+          jobIds: jobs.map(job => job.id),
+          totalScenes: scenes.length,
+        },
+      });
+
+      logger.info('Asset download batch triggered', {
+        postId,
+        scriptId,
+        totalScenes: scenes.length,
+        jobIds: jobs.map(job => job.id),
+      });
+
+      this.emit('asset_download:triggered', {
+        postId,
+        scriptId,
+        jobIds: jobs.map(job => job.id),
+      });
+
+      return jobs.map(job => job.id);
+    } catch (error) {
+      logger.error('Failed to trigger asset download', {
+        postId,
+        scriptId,
+        error: (error as Error).message,
+      });
+
+      this.emit('asset_download:failed', { postId, scriptId, error });
+      throw error;
+    }
+  }
+
+  /**
    * Cancel a generation job
    */
   async cancelGeneration(postId: string): Promise<boolean> {
@@ -522,5 +600,152 @@ export class PipelineController extends EventEmitter {
       });
       throw error;
     }
+  }
+
+  /**
+   * Handle successful asset download completion
+   */
+  private async handleAssetDownloadCompleted(data: {
+    jobId: string;
+    postId: string;
+    scriptId: string;
+    sceneId: number;
+    duration: number;
+  }): Promise<void> {
+    try {
+      logger.info('Asset download completed', {
+        jobId: data.jobId,
+        postId: data.postId,
+        scriptId: data.scriptId,
+        sceneId: data.sceneId,
+      });
+
+      // Check if all assets for the script are downloaded
+      const pendingJobs = this.db.all<any>(
+        `SELECT id FROM asset_download_queue 
+         WHERE script_id = ? AND status IN ('pending', 'processing')`,
+        [data.scriptId]
+      );
+
+      // If no pending jobs, mark assets as ready
+      if (pendingJobs.length === 0) {
+        this.updatePostStatus(data.postId, 'assets_ready');
+
+        // Send notification that all assets are ready
+        this.wsService.broadcast({
+          type: 'assets_all_downloaded',
+          payload: {
+            postId: data.postId,
+            scriptId: data.scriptId,
+            nextStage: 'video_rendering',
+          },
+        });
+
+        this.emit('pipeline:stage:completed', {
+          postId: data.postId,
+          stage: 'asset_download',
+        });
+
+        logger.info('All assets downloaded for script', {
+          postId: data.postId,
+          scriptId: data.scriptId,
+        });
+      }
+    } catch (error) {
+      logger.error('Error handling asset download completion', {
+        jobId: data.jobId,
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Handle asset download failure
+   */
+  private async handleAssetDownloadFailed(data: {
+    jobId: string;
+    postId: string;
+    scriptId: string;
+    sceneId: number;
+    error: string;
+  }): Promise<void> {
+    try {
+      logger.warn('Asset download failed', {
+        jobId: data.jobId,
+        postId: data.postId,
+        scriptId: data.scriptId,
+        sceneId: data.sceneId,
+        error: data.error,
+      });
+
+      // Send notification about failed asset download
+      this.wsService.broadcast({
+        type: 'asset_download_scene_failed',
+        payload: {
+          postId: data.postId,
+          scriptId: data.scriptId,
+          sceneId: data.sceneId,
+          error: data.error,
+        },
+      });
+
+      this.emit('pipeline:asset:failed', {
+        postId: data.postId,
+        scriptId: data.scriptId,
+        sceneId: data.sceneId,
+        error: data.error,
+      });
+    } catch (error) {
+      logger.error('Error handling asset download failure', {
+        jobId: data.jobId,
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Cancel asset download for a script
+   */
+  async cancelAssetDownload(scriptId: string): Promise<number> {
+    try {
+      const cancelledCount =
+        await this.assetQueue.cancelJobsForScript(scriptId);
+
+      logger.info('Asset download jobs cancelled', {
+        scriptId,
+        cancelledCount,
+      });
+
+      return cancelledCount;
+    } catch (error) {
+      logger.error('Failed to cancel asset download', {
+        scriptId,
+        error: (error as Error).message,
+      });
+      return 0;
+    }
+  }
+
+  /**
+   * Get asset download status for a script
+   */
+  async getAssetDownloadStatus(scriptId: string): Promise<{
+    totalJobs: number;
+    completed: number;
+    processing: number;
+    pending: number;
+    failed: number;
+    jobs: any[];
+  }> {
+    const jobs = await this.assetQueue.getJobsForScript(scriptId);
+
+    return {
+      totalJobs: jobs.length,
+      completed: jobs.filter(job => job.status === 'completed').length,
+      processing: jobs.filter(job => job.status === 'processing').length,
+      pending: jobs.filter(job => job.status === 'pending').length,
+      failed: jobs.filter(job => job.status === 'failed').length,
+      jobs,
+    };
   }
 }

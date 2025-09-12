@@ -1,7 +1,6 @@
 import { FastifyPluginCallback, FastifyInstance } from 'fastify';
 import { DatabaseService } from '../../services/database';
-import { GenerationQueue } from '../../queue/generationQueue';
-import { PipelineController } from '../../services/pipelineController';
+import { ServiceFactory } from '../../services/ServiceFactory';
 import { ScriptVersionManager } from '../../services/scriptVersionManager';
 import { ContentValidator } from '../../services/contentValidator';
 import { WebSocketService } from '../../services/websocket';
@@ -56,6 +55,15 @@ interface QueueStatusQuery {
   limit?: number;
 }
 
+interface DownloadAssetsRequest {
+  scenes?: Array<{
+    sceneId: number;
+    searchPhrase: string;
+    assetType: 'photo' | 'video';
+  }>;
+  priority?: number;
+}
+
 const scriptsRoutes: FastifyPluginCallback = (
   fastify: FastifyInstance,
   options,
@@ -65,22 +73,30 @@ const scriptsRoutes: FastifyPluginCallback = (
   const db = fastify.db as DatabaseService;
   const wsService = fastify.wsService as WebSocketService;
 
-  // Initialize queue and pipeline (these should be singletons)
-  const queue = new GenerationQueue(db, wsService);
-  const pipeline = new PipelineController(db, queue, wsService);
+  // Get singleton instances from ServiceFactory
+  const queue = ServiceFactory.getGenerationQueue(db, wsService);
+  const assetQueue = ServiceFactory.getAssetDownloadQueue(db, wsService);
+  const pipeline = ServiceFactory.getPipelineController(
+    db,
+    queue,
+    assetQueue,
+    wsService
+  );
   const versionManager = new ScriptVersionManager(db);
   const validator = new ContentValidator();
   const statusService = new StatusTransitionService(db);
 
-  // Start queue and pipeline on server start
+  // Start queues and pipeline on server start
   fastify.addHook('onReady', async () => {
     await queue.start();
+    await assetQueue.start();
     await pipeline.start();
   });
 
-  // Stop queue and pipeline on server close
+  // Stop queues and pipeline on server close
   fastify.addHook('onClose', async () => {
     await pipeline.stop();
+    await assetQueue.stop();
     await queue.stop();
   });
 
@@ -1361,6 +1377,313 @@ const scriptsRoutes: FastifyPluginCallback = (
     } catch (error) {
       fastify.log.error(
         `Download resume failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to resume download',
+      });
+    }
+  });
+
+  // Download assets for script
+  fastify.post<{
+    Params: { id: string };
+    Body: DownloadAssetsRequest;
+  }>('/:id/assets/download', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { scenes, priority = 0 } = request.body;
+
+      // Find the script and get scene breakdown
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      let sceneList: Array<{
+        sceneId: number;
+        searchPhrase: string;
+        assetType: 'photo' | 'video';
+      }> = [];
+
+      // If scenes provided, use them; otherwise extract from script breakdown
+      if (scenes && scenes.length > 0) {
+        sceneList = scenes;
+      } else if (script.scene_breakdown) {
+        try {
+          const sceneBreakdown = JSON.parse(script.scene_breakdown);
+          sceneList = sceneBreakdown.map((scene: any, index: number) => ({
+            sceneId: index + 1,
+            searchPhrase:
+              scene.keywords?.join(' ') ||
+              scene.content?.slice(0, 50) ||
+              `scene ${index + 1}`,
+            assetType:
+              Math.random() > 0.5 ? 'photo' : ('video' as 'photo' | 'video'),
+          }));
+        } catch (error) {
+          fastify.log.warn(
+            'Failed to parse scene breakdown for asset download',
+            { error }
+          );
+          return reply.code(400).send({
+            success: false,
+            error: 'Invalid scene breakdown data',
+          });
+        }
+      } else {
+        return reply.code(400).send({
+          success: false,
+          error: 'No scenes provided and no scene breakdown found in script',
+        });
+      }
+
+      if (sceneList.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          error: 'No scenes to download assets for',
+        });
+      }
+
+      // Trigger asset download through pipeline
+      const jobIds = await pipeline.triggerAssetDownload(
+        script.post_id,
+        script.id,
+        sceneList,
+        priority
+      );
+
+      fastify.log.info('Asset download started', {
+        scriptId: script.id,
+        postId: script.post_id,
+        scenesCount: sceneList.length,
+        jobIds: jobIds,
+      });
+
+      reply.send({
+        success: true,
+        jobIds,
+        scenesCount: sceneList.length,
+        message: `Started asset download for ${sceneList.length} scenes`,
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Asset download failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error: error instanceof Error ? error.message : 'Asset download failed',
+      });
+    }
+  });
+
+  // Get asset download status
+  fastify.get<{
+    Params: { id: string };
+  }>('/:id/assets/status', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Find the script
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      // Get asset download jobs for this script
+      const jobs = db.all<any>(
+        'SELECT * FROM asset_download_queue WHERE script_id = ? ORDER BY created_at DESC',
+        [script.id]
+      );
+
+      // Get queue stats
+      const stats = assetQueue.getQueueStats();
+
+      reply.send({
+        success: true,
+        postStatus: script.post_status,
+        jobs,
+        stats,
+        summary: {
+          total: jobs.length,
+          pending: jobs.filter(j => j.status === 'pending').length,
+          processing: jobs.filter(j => j.status === 'processing').length,
+          completed: jobs.filter(j => j.status === 'completed').length,
+          failed: jobs.filter(j => j.status === 'failed').length,
+        },
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Failed to get asset download status: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to get download status',
+      });
+    }
+  });
+
+  // Cancel asset download jobs
+  fastify.delete<{
+    Params: { id: string };
+  }>('/:id/assets/cancel', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Find the script
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      // Get pending/processing jobs for this script
+      const jobs = db.all<any>(
+        'SELECT * FROM asset_download_queue WHERE script_id = ? AND status IN (?, ?)',
+        [script.id, 'pending', 'processing']
+      );
+
+      let cancelledCount = 0;
+      for (const job of jobs) {
+        const cancelled = await assetQueue.cancelJob(job.id);
+        if (cancelled) {
+          cancelledCount++;
+        }
+      }
+
+      fastify.log.info('Asset download jobs cancelled', {
+        scriptId: script.id,
+        postId: script.post_id,
+        totalJobs: jobs.length,
+        cancelledCount,
+      });
+
+      reply.send({
+        success: true,
+        totalJobs: jobs.length,
+        cancelledCount,
+        message: `Cancelled ${cancelledCount} of ${jobs.length} jobs`,
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Failed to cancel asset download jobs: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      reply.code(500).send({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to cancel download jobs',
+      });
+    }
+  });
+
+  // Resume asset download for script
+  fastify.post<{
+    Params: { id: string };
+  }>('/:id/assets/resume', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      // Find the script
+      const script = db.get<any>(
+        'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
+        [id, id]
+      );
+
+      if (!script) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Script not found',
+        });
+      }
+
+      // Get existing jobs for this script
+      const existingJobs = await assetQueue.getJobsForScript(script.id);
+
+      if (existingJobs.length === 0) {
+        return reply.code(400).send({
+          success: false,
+          error:
+            'No existing jobs found to resume. Please start download first.',
+        });
+      }
+
+      // Reset failed jobs to pending to resume them
+      const failedJobs = existingJobs.filter(job => job.status === 'failed');
+      let resumedCount = 0;
+
+      for (const job of failedJobs) {
+        db.run(
+          `UPDATE asset_download_queue 
+           SET status = 'pending', 
+               attempts = 0,
+               error_message = NULL,
+               started_at = NULL,
+               completed_at = NULL,
+               worker_id = NULL
+           WHERE id = ?`,
+          [job.id]
+        );
+        resumedCount++;
+      }
+
+      // Update post status to assets_downloading
+      db.run('UPDATE reddit_posts SET status = ? WHERE id = ?', [
+        'assets_downloading',
+        script.post_id,
+      ]);
+
+      // Trigger processing of resumed jobs
+      if (resumedCount > 0) {
+        // The queue should automatically pick up pending jobs
+        assetQueue.start(); // Ensure queue is running
+      }
+
+      fastify.log.info('Asset download resumed', {
+        scriptId: script.id,
+        postId: script.post_id,
+        totalJobs: existingJobs.length,
+        resumedCount,
+        completedCount: existingJobs.filter(job => job.status === 'completed')
+          .length,
+      });
+
+      reply.send({
+        success: true,
+        totalJobs: existingJobs.length,
+        resumedCount,
+        completedCount: existingJobs.filter(job => job.status === 'completed')
+          .length,
+        message: `Resumed ${resumedCount} failed jobs out of ${existingJobs.length} total jobs`,
+      });
+    } catch (error) {
+      fastify.log.error(
+        `Failed to resume asset download: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       reply.code(500).send({
         success: false,
