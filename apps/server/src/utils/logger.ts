@@ -1,5 +1,4 @@
 import winston from 'winston';
-import { config } from '../config/index.js';
 
 // Define log format
 const logFormat = winston.format.combine(
@@ -26,47 +25,56 @@ const logFormat = winston.format.combine(
   })
 );
 
-// Create transports array
-const transports: winston.transport[] = [];
+// Function to create logger with config
+function createLogger() {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const logLevel = process.env.LOG_LEVEL || 'info';
 
-// Console transport for development
-if (config.nodeEnv === 'development') {
-  transports.push(
-    new winston.transports.Console({
-      format: winston.format.combine(winston.format.colorize(), logFormat),
-    })
-  );
-} else {
-  // Non-colorized console for production
-  transports.push(
-    new winston.transports.Console({
-      format: logFormat,
-    })
-  );
-}
+  // Create transports array
+  const transports: winston.transport[] = [];
 
-// File transport for production and error logs
-if (config.nodeEnv === 'production') {
-  transports.push(
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error',
-      format: logFormat,
-    }),
-    new winston.transports.File({
-      filename: 'logs/combined.log',
-      format: logFormat,
-    })
-  );
+  // Console transport for development
+  if (nodeEnv === 'development') {
+    transports.push(
+      new winston.transports.Console({
+        format: winston.format.combine(winston.format.colorize(), logFormat),
+      })
+    );
+  } else {
+    // Non-colorized console for production
+    transports.push(
+      new winston.transports.Console({
+        format: logFormat,
+      })
+    );
+  }
+
+  // File transport for production and error logs
+  if (nodeEnv === 'production') {
+    transports.push(
+      new winston.transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+        format: logFormat,
+      }),
+      new winston.transports.File({
+        filename: 'logs/combined.log',
+        format: logFormat,
+      })
+    );
+  }
+
+  // Create logger instance
+  return winston.createLogger({
+    level: logLevel,
+    format: logFormat,
+    transports,
+    exitOnError: false,
+  });
 }
 
 // Create logger instance
-export const logger = winston.createLogger({
-  level: config.logLevel,
-  format: logFormat,
-  transports,
-  exitOnError: false,
-});
+export const logger = createLogger();
 
 // Request logging middleware for Fastify
 export function createRequestLogger() {
