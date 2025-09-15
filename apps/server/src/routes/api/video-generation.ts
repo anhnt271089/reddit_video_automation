@@ -1,10 +1,16 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { bundle } from '@remotion/bundler';
-import { renderVideo, selectComposition } from '@remotion/renderer';
+import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../utils/logger.js';
+import {
+  VIDEO_CONFIG,
+  ERROR_MESSAGES,
+  SUCCESS_MESSAGES,
+  HTTP_STATUS,
+} from '../../constants/index.js';
 
 interface VideoGenerationRequest {
   scriptId: string;
@@ -35,11 +41,13 @@ interface VideoGenerationProgress {
 const videoJobs = new Map<string, VideoGenerationProgress>();
 
 export async function videoGenerationRoutes(fastify: FastifyInstance) {
+  logger.info('Video generation routes being registered');
+
   // Start video generation
   fastify.post<{
     Body: VideoGenerationRequest;
     Reply: { jobId: string; message: string };
-  }>('/api/video/generate', async (request, reply) => {
+  }>('/video/generate', async (request, reply) => {
     try {
       const {
         scriptId,
@@ -85,8 +93,8 @@ export async function videoGenerationRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       logger.error('Failed to start video generation:', error);
-      reply.status(500).send({
-        error: 'Failed to start video generation',
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: ERROR_MESSAGES.VIDEO_GENERATION_FAILED,
         details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -96,12 +104,14 @@ export async function videoGenerationRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Params: { jobId: string };
     Reply: VideoGenerationProgress | { error: string };
-  }>('/api/video/status/:jobId', async (request, reply) => {
+  }>('/video/status/:jobId', async (request, reply) => {
     const { jobId } = request.params;
 
     const job = videoJobs.get(jobId);
     if (!job) {
-      reply.status(404).send({ error: 'Job not found' });
+      reply
+        .status(HTTP_STATUS.NOT_FOUND)
+        .send({ error: ERROR_MESSAGES.NOT_FOUND });
       return;
     }
 
@@ -112,7 +122,7 @@ export async function videoGenerationRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Params: { scriptId: string };
     Reply: any;
-  }>('/api/scripts/:scriptId/composition-data', async (request, reply) => {
+  }>('/scripts/:scriptId/composition-data', async (request, reply) => {
     try {
       const { scriptId } = request.params;
 
@@ -123,7 +133,9 @@ export async function videoGenerationRoutes(fastify: FastifyInstance) {
       const script = scriptQuery.get(scriptId) as any;
 
       if (!script) {
-        reply.status(404).send({ error: 'Script not found' });
+        reply
+          .status(HTTP_STATUS.NOT_FOUND)
+          .send({ error: ERROR_MESSAGES.SCRIPT_NOT_FOUND });
         return;
       }
 
@@ -160,8 +172,8 @@ export async function videoGenerationRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       logger.error('Failed to get composition data:', error);
-      reply.status(500).send({
-        error: 'Failed to get composition data',
+      reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+        error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         details: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -206,16 +218,11 @@ async function generateVideo(
     });
 
     // Get the composition
-    const compositions = await selectComposition({
+    const composition = await selectComposition({
       serveUrl: bundleLocation,
       id: 'RedditVideo',
+      inputProps: {},
     });
-
-    if (!compositions.length) {
-      throw new Error('No compositions found');
-    }
-
-    const composition = compositions[0];
 
     updateJob({
       progress: 50,
@@ -225,7 +232,7 @@ async function generateVideo(
     // Render the video
     const outputPath = path.resolve(
       process.cwd(),
-      'generated-videos',
+      '../../assets/videos',
       `${jobId}.${outputFormat}`
     );
 
@@ -235,7 +242,7 @@ async function generateVideo(
     // Get quality settings
     const qualitySettings = getQualitySettings(quality);
 
-    await renderVideo({
+    await renderMedia({
       composition,
       serveUrl: bundleLocation,
       codec: outputFormat === 'webm' ? 'vp8' : 'h264',
@@ -247,9 +254,9 @@ async function generateVideo(
           description: 'Generated video from Reddit content',
           scenes: [], // This would be populated from your API
           style,
-          dimensions: { width: 1080, height: 1920 },
-          fps: 30,
-          duration: 60, // This would be calculated from scenes
+          dimensions: VIDEO_CONFIG.DEFAULT_DIMENSIONS,
+          fps: VIDEO_CONFIG.DEFAULT_FPS,
+          duration: VIDEO_CONFIG.DEFAULT_DURATION, // This would be calculated from scenes
         },
       },
       ...qualitySettings,
@@ -265,7 +272,7 @@ async function generateVideo(
       stage: 'complete',
       progress: 100,
       message: 'Video generation complete!',
-      outputUrl: `/generated-videos/${jobId}.${outputFormat}`,
+      outputUrl: `/assets/videos/${jobId}.${outputFormat}`,
     });
 
     logger.info(`Video generation completed for job ${jobId}`);
@@ -289,22 +296,9 @@ async function generateVideo(
 }
 
 function getQualitySettings(quality: string) {
-  switch (quality) {
-    case 'low':
-      return {
-        scale: 0.5,
-        crf: 28,
-      };
-    case 'high':
-      return {
-        scale: 1.0,
-        crf: 18,
-      };
-    case 'medium':
-    default:
-      return {
-        scale: 1.0,
-        crf: 23,
-      };
-  }
+  const preset =
+    VIDEO_CONFIG.QUALITY_PRESETS[
+      quality as keyof typeof VIDEO_CONFIG.QUALITY_PRESETS
+    ];
+  return preset || VIDEO_CONFIG.QUALITY_PRESETS.medium;
 }

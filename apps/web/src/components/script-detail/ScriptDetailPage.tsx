@@ -11,6 +11,7 @@ import {
 import { ScriptEditor } from './ScriptEditor';
 import { MetadataPanel } from './MetadataPanel';
 import { SceneTimeline } from './SceneTimeline';
+import { VideoGeneration } from './VideoGeneration';
 import { useAppStore } from '../../stores/useAppStore';
 import {
   useWebSocketContext,
@@ -415,6 +416,8 @@ export function ScriptDetailPage({
               console.log('Setting isApproved and allAssetsDownloaded to true');
               setIsApproved(true);
               setAllAssetsDownloaded(true);
+              // Check current asset download status to update progress display
+              await checkAssetDownloadStatus(data.script.postId || scriptId);
             }
           } else {
             setError('Script not found');
@@ -966,6 +969,14 @@ export function ScriptDetailPage({
                   </div>
                 </div>
               )}
+
+              {/* Video Generation Section */}
+              <VideoGeneration
+                scriptId={scriptId}
+                postId={script.postId}
+                isEnabled={allAssetsDownloaded}
+              />
+
               <div className="flex-1">
                 <MetadataPanel
                   metadata={script.metadata}

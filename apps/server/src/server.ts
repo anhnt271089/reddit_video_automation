@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import staticPlugin from '@fastify/static';
+import path from 'path';
 import { config } from './config/index.js';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api/index.js';
@@ -31,6 +33,12 @@ async function buildServer() {
       options: {
         maxPayload: 1048576, // 1MB
       },
+    });
+
+    // Register static file serving for assets
+    await fastify.register(staticPlugin, {
+      root: path.resolve(process.cwd(), '../../assets'),
+      prefix: '/assets/',
     });
 
     // Initialize and register WebSocket service

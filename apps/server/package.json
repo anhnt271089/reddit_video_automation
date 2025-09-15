@@ -20,7 +20,10 @@
   "packageManager": "pnpm@10.15.0",
   "dependencies": {
     "@fastify/cors": "^8.5.0",
+    "@fastify/static": "^7.0.4",
     "@fastify/websocket": "^8.3.1",
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
     "@types/uuid": "^10.0.0",
     "@video-automation/shared-types": "workspace:*",
     "better-sqlite3": "^9.6.0",
@@ -28,9 +31,7 @@
     "fastify": "^4.29.1",
     "fastify-plugin": "^5.0.1",
     "uuid": "^11.1.0",
-    "winston": "^3.17.0",
-    "@remotion/bundler": "^4.0.0",
-    "@remotion/renderer": "^4.0.0"
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

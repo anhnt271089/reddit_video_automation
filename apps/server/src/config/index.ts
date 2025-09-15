@@ -1,5 +1,6 @@
 import { config as dotenvConfig } from 'dotenv';
 import { join } from 'path';
+import { logger } from '../utils/logger.js';
 
 // Load environment variables
 dotenvConfig();
@@ -96,23 +97,33 @@ function validateConfig(config: Config): void {
   ];
 
   if (placeholderKeys.includes(config.apiKeys.reddit.clientId)) {
-    console.warn('Warning: Using placeholder Reddit client ID');
+    logger.warn(
+      'Using placeholder Reddit client ID - update REDDIT_CLIENT_ID environment variable'
+    );
   }
 
   if (placeholderKeys.includes(config.apiKeys.reddit.clientSecret)) {
-    console.warn('Warning: Using placeholder Reddit client secret');
+    logger.warn(
+      'Using placeholder Reddit client secret - update REDDIT_CLIENT_SECRET environment variable'
+    );
   }
 
   if (placeholderKeys.includes(config.apiKeys.claude)) {
-    console.warn('Warning: Using placeholder Claude API key');
+    logger.warn(
+      'Using placeholder Claude API key - update CLAUDE_API_KEY environment variable'
+    );
   }
 
   if (placeholderKeys.includes(config.apiKeys.pexels)) {
-    console.warn('Warning: Using placeholder Pexels API key');
+    logger.warn(
+      'Using placeholder Pexels API key - update PEXELS_API_KEY environment variable'
+    );
   }
 
   if (placeholderKeys.includes(config.apiKeys.elevenLabs)) {
-    console.warn('Warning: Using placeholder ElevenLabs API key');
+    logger.warn(
+      'Using placeholder ElevenLabs API key - update ELEVENLABS_API_KEY environment variable'
+    );
   }
 
   // JWT secret validation
@@ -120,7 +131,9 @@ function validateConfig(config: Config): void {
     if (config.nodeEnv === 'production') {
       errors.push('JWT_SECRET must be set to a secure value in production');
     } else {
-      console.warn('Warning: Using default JWT secret in development');
+      logger.warn(
+        'Using default JWT secret in development - consider setting JWT_SECRET for enhanced security'
+      );
     }
   }
 
@@ -140,9 +153,9 @@ export const config = createConfig();
 
 try {
   validateConfig(config);
-  console.log('Configuration loaded and validated successfully');
+  logger.info('Configuration loaded and validated successfully');
 } catch (error) {
-  console.error('Configuration validation failed:', error);
+  logger.error('Configuration validation failed:', error);
   process.exit(1);
 }
 

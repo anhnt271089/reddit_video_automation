@@ -10,6 +10,7 @@
     "dev": "turbo run dev --parallel",
     "dev:web": "turbo run dev --filter=video-automation-web",
     "dev:server": "turbo run dev --filter=server",
+    "dev:remotion": "turbo run dev --filter=video-renderer",
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",

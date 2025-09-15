@@ -37,7 +37,7 @@ interface WebSocketProviderProps {
 // Singleton WebSocket Provider that manages a single connection
 export function WebSocketProvider({
   children,
-  url = 'ws://localhost:3001/ws',
+  url = `ws://${window.location.host}/ws`,
 }: WebSocketProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionState, setConnectionState] = useState<
