@@ -20,13 +20,13 @@ export async function apiRoutes(fastify: FastifyInstance) {
       fastify.register(searchPhraseRoutes, { prefix: '/search-phrases' });
 
       // Register Pexels Download API routes
-      fastify.register(pexelsDownloadRoutes, { prefix: '/pexels-download' });
+      // fastify.register(pexelsDownloadRoutes, { prefix: '/pexels-download' }); // Temporarily disabled due to database dependency
 
       // Register Video Generation API routes
-      fastify.register(videoGenerationRoutes);
+      // fastify.register(videoGenerationRoutes); // Temporarily disabled due to database dependency
 
       // Register Test Scripts routes (for development/testing)
-      fastify.register(testScriptsRoutes);
+      // fastify.register(testScriptsRoutes); // Temporarily disabled due to database dependency
 
       // Placeholder API routes structure
       // Will be expanded in future stories
