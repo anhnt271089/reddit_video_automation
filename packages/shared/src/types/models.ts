@@ -124,6 +124,27 @@ export interface GenerationQueueJob {
   worker_id?: string;
 }
 
+export interface AssetDownloadJob {
+  id: string;
+  post_id: string;
+  script_id: string;
+  scene_id: number;
+  search_phrase: string;
+  asset_type: 'photo' | 'video';
+  status: QueueStatus;
+  priority: number;
+  attempts: number;
+  max_attempts: number;
+  progress_percentage: number;
+  file_path: string;
+  asset_url?: string;
+  error_message?: string;
+  created_at: Date;
+  started_at?: Date;
+  completed_at?: Date;
+  worker_id?: string;
+}
+
 export interface VideoAsset {
   id: string;
   script_id: string;

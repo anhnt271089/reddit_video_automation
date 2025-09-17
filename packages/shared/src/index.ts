@@ -21,6 +21,7 @@ export type {
   ScriptVersion,
   QueueStatus,
   GenerationQueueJob,
+  AssetDownloadJob,
 } from './types/models.js';
 
 // Status Management Service
