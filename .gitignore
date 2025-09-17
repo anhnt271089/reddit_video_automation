@@ -136,6 +136,14 @@ data/
 # Generated Content & Media
 # ==========================================
 
+# Ignore entire assets directory at any level
+**/assets/
+assets/
+
+# Server generated videos directory
+apps/server/generated-videos/
+
+# Old patterns kept for reference (now covered by above)
 # Main assets directory - ignore all generated content
 assets/**/videos/*.mp4
 assets/**/videos/*.webm
