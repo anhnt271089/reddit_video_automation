@@ -86,8 +86,12 @@ async function buildServer() {
           }
         });
 
-        connection.socket.on('close', () => {
-          logger.info('WebSocket connection closed');
+        connection.socket.on('close', (code: number, reason: string) => {
+          logger.info('WebSocket connection closed', { code, reason });
+        });
+
+        connection.socket.on('error', (error: any) => {
+          logger.error('WebSocket connection error', { error });
         });
       });
     });

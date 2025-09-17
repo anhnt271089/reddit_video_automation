@@ -96,7 +96,7 @@ export class WebSocketService {
     }
 
     try {
-      if (client.socket.readyState === WebSocket.OPEN) {
+      if (client.socket.readyState === WEBSOCKET_READY_STATE.OPEN) {
         const payload = JSON.stringify({
           type: 'direct',
           data: message,
