@@ -20,7 +20,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
       fastify.register(searchPhraseRoutes, { prefix: '/search-phrases' });
 
       // Register Pexels Download API routes
-      // fastify.register(pexelsDownloadRoutes, { prefix: '/pexels-download' }); // Temporarily disabled due to database dependency
+      fastify.register(pexelsDownloadRoutes, { prefix: '/pexels-download' });
 
       // Register Video Generation API routes
       // fastify.register(videoGenerationRoutes); // Temporarily disabled due to database dependency
