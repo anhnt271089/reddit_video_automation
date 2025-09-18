@@ -99,18 +99,25 @@ export function SceneTimeline({
         scriptId,
       });
 
-      const response = await fetch('/api/pexels-download/search-and-download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          searchPhrase,
-          assetType,
-          scriptId,
-          sentenceId: sceneId,
-        }),
-      });
+      // Use the same queue system as main download to sync with Asset Download Progress
+      const response = await fetch(
+        `http://localhost:3001/api/scripts/${scriptId}/assets/download`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            scenes: [
+              {
+                sceneId: sceneId,
+                searchPhrase: searchPhrase,
+                assetType,
+              },
+            ],
+          }),
+        }
+      );
 
       const result = await response.json();
       console.log('Download result:', result);
@@ -734,8 +741,9 @@ export function SceneTimeline({
                       parentDownloadedScenes?.has(scene.id) ||
                       downloadedScenes.has(scene.id);
 
-                    // Check if assets are already ready (downloaded) based on script status
-                    const allAssetsReady = scriptStatus === 'assets_ready';
+                    // Check if this specific scene's asset is ready (downloaded successfully)
+                    // Don't just rely on overall script status, check individual scene completion
+                    const allAssetsReady = isDownloaded;
 
                     // Check if downloads are in progress or paused
                     const downloadInProgress =
@@ -815,9 +823,19 @@ export function SceneTimeline({
                             </Button>
                           )}
                           {/* Show individual scene status indicators based on actual scene state */}
-                          {downloadInProgress && (
-                            <>
-                              {isDownloaded && (
+                          {(() => {
+                            // Prioritize more specific status over general ones
+                            if (isDownloading) {
+                              return (
+                                <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                  <div className="animate-spin h-3 w-3 border border-blue-800 border-t-transparent rounded-full"></div>
+                                  <span>Downloading</span>
+                                </div>
+                              );
+                            }
+
+                            if (isDownloaded || allAssetsReady) {
+                              return (
                                 <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
                                   <svg
                                     className="h-3 w-3"
@@ -832,16 +850,13 @@ export function SceneTimeline({
                                       d="M5 13l4 4L19 7"
                                     />
                                   </svg>
-                                  <span>Downloaded</span>
+                                  <span>Ready</span>
                                 </div>
-                              )}
-                              {isDownloading && (
-                                <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                  <div className="animate-spin h-3 w-3 border border-blue-800 border-t-transparent rounded-full"></div>
-                                  <span>Downloading</span>
-                                </div>
-                              )}
-                              {!isDownloading && !isDownloaded && (
+                              );
+                            }
+
+                            if (downloadInProgress) {
+                              return (
                                 <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
                                   <svg
                                     className="h-3 w-3"
@@ -858,27 +873,11 @@ export function SceneTimeline({
                                   </svg>
                                   <span>Waiting</span>
                                 </div>
-                              )}
-                            </>
-                          )}
-                          {allAssetsReady && (
-                            <div className="ml-2 flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                              <svg
-                                className="h-3 w-3"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                              <span>Ready</span>
-                            </div>
-                          )}
+                              );
+                            }
+
+                            return null;
+                          })()}
                         </div>
                       );
                     }
