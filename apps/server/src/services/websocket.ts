@@ -81,8 +81,8 @@ export class WebSocketService {
       }
     });
 
-    logger.debug(
-      `Broadcast sent to ${successCount} clients, ${errorCount} errors`
+    logger.info(
+      `WebSocket broadcast sent to ${successCount} clients, ${errorCount} errors`
     );
   }
 
