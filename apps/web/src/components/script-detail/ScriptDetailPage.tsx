@@ -155,9 +155,21 @@ export function ScriptDetailPage({
             total,
             currentItem:
               currentAsset || `${completed}/${total} assets completed`,
-            // Use photo/video data directly from backend if available
-            photos: photos || prev.photos,
-            videos: videos || prev.videos,
+            // Convert photos and videos from numbers to objects
+            photos:
+              photos !== undefined
+                ? {
+                    total: prev.photos.total,
+                    completed: photos,
+                  }
+                : prev.photos,
+            videos:
+              videos !== undefined
+                ? {
+                    total: prev.videos.total,
+                    completed: videos,
+                  }
+                : prev.videos,
           }));
 
           // Mark as complete if all done
@@ -762,27 +774,28 @@ export function ScriptDetailPage({
         }
       );
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Background asset download started:', result);
+      console.log('Asset download response status:', response.status);
 
-        // Update local script status immediately
-        setScript(prev =>
-          prev ? { ...prev, status: 'assets_downloading' } : null
-        );
-
-        setDownloadStats(prev => ({
-          ...prev,
-          currentItem: 'Background download in progress...',
-        }));
-
-        // The WebSocket will handle all progress updates from here
-      } else {
-        const errorResult = await response.json();
-        throw new Error(
-          errorResult.error || 'Failed to start background download'
-        );
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Asset download error response:', errorText);
+        throw new Error(errorText || `HTTP ${response.status}`);
       }
+
+      const result = await response.json();
+      console.log('✅ Background asset download started:', result);
+
+      // Update local script status immediately
+      setScript(prev =>
+        prev ? { ...prev, status: 'assets_downloading' } : null
+      );
+
+      setDownloadStats(prev => ({
+        ...prev,
+        currentItem: 'Background download in progress...',
+      }));
+
+      // The WebSocket will handle all progress updates from here
     } catch (error) {
       console.error('Failed to start asset download:', error);
       setDownloadStats(prev => ({
