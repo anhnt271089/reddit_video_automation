@@ -13,6 +13,44 @@ import type {
   GeneratedScript,
   ScriptStyle,
 } from '../../services/claude-code/types';
+import { generatePrimarySearchPhrase } from '../../utils/searchPhraseGenerator';
+
+// Helper function to create search phrase from scene content
+function createOptimizedSearchPhrase(scene: any, index: number): string {
+  const content = scene.content || scene.narration || '';
+  const assetType = determineAssetType(scene, index);
+
+  if (content.trim()) {
+    return generatePrimarySearchPhrase(content, assetType);
+  }
+
+  // Fallback to limited keywords only if no content
+  return scene.keywords?.slice(0, 2).join(' ') || `scene ${index + 1}`;
+}
+
+// Helper function to determine asset type with balanced distribution
+function determineAssetType(scene: any, index: number): 'photo' | 'video' {
+  // Log for debugging
+  console.log(
+    `Scene ${index + 1} duration:`,
+    scene.duration,
+    typeof scene.duration
+  );
+
+  // Primary logic: duration-based (matching SceneTimeline logic)
+  if (scene.duration && typeof scene.duration === 'number') {
+    const assetType = scene.duration < 4 ? 'photo' : 'video';
+    console.log(`Scene ${index + 1} duration-based type:`, assetType);
+    return assetType;
+  }
+
+  // Enhanced logic: ensure 50/50 mix when duration is not available
+  // Use a more balanced approach - every 3rd scene is video to get roughly 33% videos
+  const isVideo = index % 3 === 1; // Scenes 2, 5, 8, 11, etc. become videos
+  const assetType = isVideo ? 'video' : 'photo';
+  console.log(`Scene ${index + 1} fallback type:`, assetType);
+  return assetType;
+}
 
 // Request/Response types
 interface GenerateScriptRequest {
@@ -1395,6 +1433,15 @@ const scriptsRoutes: FastifyPluginCallback = (
       const { id } = request.params;
       const { scenes, priority = 0 } = request.body;
 
+      // Debug: Log what we received from frontend
+      fastify.log.info('Asset download request received', {
+        id,
+        hasScenes: !!scenes,
+        scenesLength: scenes?.length || 0,
+        firstSceneExample: scenes?.[0] || null,
+        requestBody: request.body,
+      });
+
       // Find the script and get scene breakdown
       const script = db.get<any>(
         'SELECT sv.*, rp.status as post_status FROM script_versions sv LEFT JOIN reddit_posts rp ON sv.post_id = rp.id WHERE sv.id = ? OR sv.post_id = ? ORDER BY sv.created_at DESC LIMIT 1',
@@ -1414,21 +1461,147 @@ const scriptsRoutes: FastifyPluginCallback = (
         assetType: 'photo' | 'video';
       }> = [];
 
-      // If scenes provided, use them; otherwise extract from script breakdown
+      // If scenes provided, use them directly (they already have search phrases from frontend)
       if (scenes && scenes.length > 0) {
         sceneList = scenes;
+        fastify.log.info(
+          'Using provided scenes with existing search phrases for bulk download',
+          {
+            scriptId: script.id,
+            scenesCount: scenes.length,
+          }
+        );
+      } else if (script.metadata) {
+        // Use script.metadata.scenes (same as SceneTimeline component)
+        try {
+          const metadata =
+            typeof script.metadata === 'string'
+              ? JSON.parse(script.metadata)
+              : script.metadata;
+          const scenesFromMetadata = metadata.scenes || [];
+
+          if (scenesFromMetadata.length > 0) {
+            // ONLY generate search phrases if not provided by frontend
+            // This is a fallback for when bulk download is called without frontend-generated phrases
+            const searchPhrasesResponse = await fetch(
+              `http://localhost:${process.env.PORT || 3001}/api/search-phrases/generate`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  sentences: scenesFromMetadata.map(
+                    (scene: any, index: number) => ({
+                      id: scene.id || index + 1,
+                      content: scene.content || scene.narration,
+                      duration: scene.duration,
+                      assetType: scene.duration < 4 ? 'photo' : 'video',
+                    })
+                  ),
+                }),
+              }
+            );
+
+            let searchPhrases: any[] = [];
+            if (searchPhrasesResponse.ok) {
+              const result = await searchPhrasesResponse.json();
+              searchPhrases = result.data || [];
+              fastify.log.info(
+                'Generated search phrases as fallback for bulk download',
+                {
+                  scriptId: script.id,
+                  phrasesCount: searchPhrases.length,
+                }
+              );
+            } else {
+              fastify.log.warn(
+                'Failed to generate search phrases from metadata, using fallback',
+                {
+                  status: searchPhrasesResponse.status,
+                }
+              );
+            }
+
+            sceneList = scenesFromMetadata.map((scene: any, index: number) => {
+              const sceneId = scene.id || index + 1;
+              // Use generated search phrase if available, otherwise fallback
+              const searchPhrase = searchPhrases.find(
+                p => p.sentenceId === sceneId
+              );
+              const assetType = scene.duration < 4 ? 'photo' : 'video'; // Same logic as SceneTimeline
+
+              return {
+                sceneId,
+                searchPhrase:
+                  searchPhrase?.primaryPhrase ||
+                  createOptimizedSearchPhrase(scene, index),
+                assetType,
+              };
+            });
+          }
+        } catch (error) {
+          fastify.log.warn(
+            'Failed to parse script metadata for asset download',
+            { error }
+          );
+        }
       } else if (script.scene_breakdown) {
         try {
           const sceneBreakdown = JSON.parse(script.scene_breakdown);
-          sceneList = sceneBreakdown.map((scene: any, index: number) => ({
-            sceneId: index + 1,
-            searchPhrase:
-              scene.keywords?.join(' ') ||
-              scene.content?.slice(0, 50) ||
-              `scene ${index + 1}`,
-            assetType:
-              Math.random() > 0.5 ? 'photo' : ('video' as 'photo' | 'video'),
-          }));
+
+          // Generate search phrases using the same endpoint as SceneTimeline component
+          const searchPhrasesResponse = await fetch(
+            `http://localhost:${process.env.PORT || 3001}/api/search-phrases/generate`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                sentences: sceneBreakdown.map((scene: any, index: number) => ({
+                  id: index + 1,
+                  content: scene.content || scene.narration,
+                  duration: scene.duration,
+                  assetType: scene.duration < 4 ? 'photo' : 'video',
+                })),
+              }),
+            }
+          );
+
+          let searchPhrases: any[] = [];
+          if (searchPhrasesResponse.ok) {
+            const result = await searchPhrasesResponse.json();
+            searchPhrases = result.data || [];
+            fastify.log.info('Generated search phrases for bulk download', {
+              scriptId: script.id,
+              phrasesCount: searchPhrases.length,
+            });
+          } else {
+            fastify.log.warn(
+              'Failed to generate search phrases, using fallback',
+              {
+                status: searchPhrasesResponse.status,
+              }
+            );
+          }
+
+          sceneList = sceneBreakdown.map((scene: any, index: number) => {
+            const sceneId = index + 1;
+            // Use generated search phrase if available, otherwise fallback
+            const searchPhrase = searchPhrases.find(
+              p => p.sentenceId === sceneId
+            );
+            const assetType = scene.duration < 4 ? 'photo' : 'video'; // Same logic as SceneTimeline
+
+            return {
+              sceneId,
+              searchPhrase:
+                searchPhrase?.primaryPhrase ||
+                createOptimizedSearchPhrase(scene, index),
+              assetType,
+            };
+          });
         } catch (error) {
           fastify.log.warn(
             'Failed to parse scene breakdown for asset download',
