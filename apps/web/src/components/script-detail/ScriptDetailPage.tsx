@@ -118,6 +118,8 @@ export function ScriptDetailPage({
             progress,
             photos,
             videos,
+            photosTotal,
+            videosTotal,
           } = actualMessage.payload;
           console.log('📥 Asset download progress:', {
             completed,
@@ -155,18 +157,24 @@ export function ScriptDetailPage({
             total,
             currentItem:
               currentAsset || `${completed}/${total} assets completed`,
-            // Convert photos and videos from numbers to objects
+            // Use totals from backend if available, otherwise keep previous
             photos:
               photos !== undefined
                 ? {
-                    total: prev.photos.total,
+                    total:
+                      photosTotal !== undefined
+                        ? photosTotal
+                        : prev.photos.total,
                     completed: photos,
                   }
                 : prev.photos,
             videos:
               videos !== undefined
                 ? {
-                    total: prev.videos.total,
+                    total:
+                      videosTotal !== undefined
+                        ? videosTotal
+                        : prev.videos.total,
                     completed: videos,
                   }
                 : prev.videos,
@@ -760,6 +768,64 @@ export function ScriptDetailPage({
 
       setDownloadStats(prev => ({
         ...prev,
+        currentItem: 'Generating search phrases...',
+      }));
+
+      // Generate search phrases for all scenes (same as SceneTimeline does)
+      const scenesForGeneration = script.metadata.scenes.map(scene => ({
+        id: scene.id,
+        content: scene.narration,
+        duration: scene.duration,
+        assetType: scene.duration < 4 ? 'photo' : 'video',
+      }));
+
+      console.log(
+        '🔍 Generating search phrases for scenes:',
+        scenesForGeneration
+      );
+
+      const phrasesResponse = await fetch('/api/search-phrases/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sentences: scenesForGeneration,
+        }),
+      });
+
+      if (!phrasesResponse.ok) {
+        throw new Error('Failed to generate search phrases');
+      }
+
+      const phrasesResult = await phrasesResponse.json();
+      const searchPhrases = phrasesResult.data || [];
+
+      console.log('✅ Generated search phrases:', searchPhrases);
+
+      // Create scenes data with search phrases and asset types for backend
+      const scenesWithSearchPhrases = script.metadata.scenes.map(scene => {
+        const searchPhrase = searchPhrases.find(
+          (phrase: any) => phrase.sentenceId === scene.id
+        );
+
+        return {
+          sceneId: scene.id, // Use sceneId as expected by backend
+          narration: scene.narration,
+          duration: scene.duration,
+          assetType: scene.duration < 4 ? 'photo' : 'video',
+          searchPhrase:
+            searchPhrase?.primaryPhrase || scene.narration.substring(0, 50),
+        };
+      });
+
+      console.log(
+        '📝 Prepared scenes for bulk download:',
+        scenesWithSearchPhrases
+      );
+
+      setDownloadStats(prev => ({
+        ...prev,
         currentItem: 'Starting background download...',
       }));
 
@@ -770,7 +836,9 @@ export function ScriptDetailPage({
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({}), // Use default scenes from script
+          body: JSON.stringify({
+            scenes: scenesWithSearchPhrases, // Pass scenes with search phrases and asset types
+          }),
         }
       );
 
