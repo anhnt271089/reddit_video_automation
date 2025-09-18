@@ -68,6 +68,8 @@ export class PexelsService {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.pexels.com/v1';
   private readonly videoBaseUrl = 'https://api.pexels.com/videos';
+  private lastRequestTime: number = 0;
+  private readonly minRequestInterval: number = 1000; // 1 second between requests
 
   constructor() {
     this.apiKey = config.apiKeys.pexels;
@@ -82,7 +84,27 @@ export class PexelsService {
     return shortBase;
   }
 
+  /**
+   * Ensure minimum time between API requests to respect rate limits
+   */
+  private async waitForRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const waitTime = this.minRequestInterval - timeSinceLastRequest;
+      logger.info(
+        `Rate limiting: waiting ${waitTime}ms before next Pexels API call`
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+
+    this.lastRequestTime = Date.now();
+  }
+
   private async makeRequest(url: string): Promise<any> {
+    await this.waitForRateLimit();
+
     const response = await fetch(url, {
       headers: {
         Authorization: this.apiKey,
@@ -91,6 +113,12 @@ export class PexelsService {
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        // If we still get rate limited, wait longer and throw a specific error
+        logger.warn('Pexels API rate limit exceeded, backing off');
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        throw new Error('Pexels API rate limit exceeded');
+      }
       throw new Error(
         `Pexels API error: ${response.status} ${response.statusText}`
       );
@@ -347,14 +375,38 @@ export class PexelsService {
       assetType
     );
 
-    for (const fallbackPhrase of fallbackPhrases) {
+    // Try fallback phrases with exponential backoff to reduce API pressure
+    for (let i = 0; i < fallbackPhrases.length; i++) {
+      const fallbackPhrase = fallbackPhrases[i];
+
+      // Add progressive delay for fallback attempts to reduce API load
+      if (i > 0) {
+        const backoffDelay = Math.min(500 * i, 2000); // 500ms, 1s, 1.5s, 2s max
+        logger.info(
+          `Backing off ${backoffDelay}ms before trying fallback phrase: "${fallbackPhrase}"`
+        );
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+
       logger.info(
         `Trying fallback phrase: "${fallbackPhrase}" for original: "${searchPhrase}"`
       );
-      result = await this.searchAndGetBest(fallbackPhrase, assetType);
-      if (result) {
-        logger.info(`Found asset using fallback phrase: "${fallbackPhrase}"`);
-        return result;
+
+      try {
+        result = await this.searchAndGetBest(fallbackPhrase, assetType);
+        if (result) {
+          logger.info(`Found asset using fallback phrase: "${fallbackPhrase}"`);
+          return result;
+        }
+      } catch (error) {
+        // If we hit a rate limit error, wait longer before continuing
+        if (error instanceof Error && error.message.includes('rate limit')) {
+          logger.warn(
+            `Rate limit hit on fallback attempt ${i + 1}, waiting longer`
+          );
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        // For other errors, just continue to next fallback
       }
     }
 
@@ -368,21 +420,164 @@ export class PexelsService {
     searchPhrase: string,
     assetType: 'photo' | 'video'
   ): string[] {
-    const words = searchPhrase.toLowerCase().split(' ');
     const fallbacks: string[] = [];
 
-    // Add individual words as fallbacks
+    // Step 1: Try simplified two-word combinations first
+    const words = this.extractUsableWords(searchPhrase);
+
+    // Create simple two-word combinations from the most meaningful words
+    for (let i = 0; i < Math.min(words.length, 3); i++) {
+      for (let j = i + 1; j < Math.min(words.length, 4); j++) {
+        fallbacks.push(`${words[i]} ${words[j]}`);
+      }
+    }
+
+    // Step 2: Add individual meaningful words (avoid very short words)
     fallbacks.push(...words.filter(word => word.length > 3));
 
-    // Add generic category fallbacks based on asset type
+    // Step 3: Add conceptual abstractions for complex terms
+    const concepts = this.extractConcepts(searchPhrase);
+    fallbacks.push(...concepts);
+
+    // Step 4: Add generic category fallbacks based on asset type
     if (assetType === 'photo') {
-      fallbacks.push('abstract', 'minimalist', 'nature', 'modern', 'colorful');
+      fallbacks.push(
+        'abstract',
+        'minimalist',
+        'nature',
+        'modern',
+        'colorful',
+        'concept'
+      );
     } else {
-      fallbacks.push('motion', 'dynamic', 'flowing', 'cinematic', 'smooth');
+      fallbacks.push(
+        'motion',
+        'dynamic',
+        'flowing',
+        'cinematic',
+        'smooth',
+        'abstract'
+      );
     }
 
     // Remove duplicates and return
     return [...new Set(fallbacks)];
+  }
+
+  /**
+   * Extract usable words from complex search phrases
+   */
+  private extractUsableWords(searchPhrase: string): string[] {
+    const words: string[] = [];
+
+    // Split by spaces and hyphens, clean up each word
+    const rawWords = searchPhrase
+      .toLowerCase()
+      .split(/[\s\-_]+/)
+      .map(word => word.replace(/[^a-z]/g, ''))
+      .filter(word => word.length > 2);
+
+    // Prioritize meaningful words (nouns, adjectives, verbs)
+    const meaningfulWords = rawWords.filter(
+      word => !this.isStopWord(word) && word.length > 3
+    );
+
+    // If we have meaningful words, use them; otherwise use all cleaned words
+    return meaningfulWords.length > 0 ? meaningfulWords : rawWords;
+  }
+
+  /**
+   * Extract broader concepts from complex phrases
+   */
+  private extractConcepts(searchPhrase: string): string[] {
+    const concepts: string[] = [];
+    const phrase = searchPhrase.toLowerCase();
+
+    // Map complex concepts to simpler visual terms
+    const conceptMap: Record<string, string[]> = {
+      habit: ['routine', 'lifestyle', 'daily'],
+      formation: ['building', 'creating', 'developing'],
+      mindset: ['thinking', 'psychology', 'mental'],
+      transformation: ['change', 'growth', 'evolution'],
+      inspiration: ['motivation', 'success', 'achievement'],
+      productivity: ['work', 'efficiency', 'focus'],
+      wellness: ['health', 'fitness', 'lifestyle'],
+      meditation: ['peace', 'calm', 'zen'],
+      technology: ['modern', 'digital', 'innovation'],
+      creativity: ['art', 'design', 'imagination'],
+      business: ['professional', 'corporate', 'office'],
+      learning: ['education', 'study', 'knowledge'],
+    };
+
+    // Check for concept matches and add simpler alternatives
+    for (const [concept, alternatives] of Object.entries(conceptMap)) {
+      if (phrase.includes(concept)) {
+        concepts.push(...alternatives);
+      }
+    }
+
+    return concepts;
+  }
+
+  /**
+   * Check if a word is a stop word (common words with little visual meaning)
+   */
+  private isStopWord(word: string): boolean {
+    const stopWords = new Set([
+      'the',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+      'from',
+      'up',
+      'about',
+      'into',
+      'through',
+      'during',
+      'before',
+      'after',
+      'above',
+      'below',
+      'between',
+      'among',
+      'this',
+      'that',
+      'these',
+      'those',
+      'you',
+      'your',
+      'is',
+      'are',
+      'was',
+      'were',
+      'been',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'should',
+      'could',
+      'can',
+      'may',
+      'might',
+      'must',
+      'shall',
+      'a',
+      'an',
+    ]);
+    return stopWords.has(word);
   }
 
   /**
